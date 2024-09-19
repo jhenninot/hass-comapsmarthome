@@ -131,7 +131,6 @@ class ComapHousingSensor(Entity):
         self.attrs[ATTR_ADDRESS] = housings[0].get("address")
         r = await self.get_schedules()
         self.attrs[ATTR_AVL_SCHDL] = self.parse_schedules(r)
-        self.attrs[ATTR_PROGRAMS] = self.get_programs()
 
     async def get_schedules(self):
         r = await self.client.get_schedules()
@@ -142,7 +141,3 @@ class ComapHousingSensor(Entity):
         for schedule in r:
             schedules.update({schedule["id"]: schedule["title"]})
         return schedules
-    
-    async def get_programs(self):
-        r = await self.client.get_programs()
-        return r

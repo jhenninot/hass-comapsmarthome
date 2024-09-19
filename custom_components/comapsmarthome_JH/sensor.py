@@ -29,8 +29,7 @@ from .const import (
     SERVICE_SET_AWAY,
     SERVICE_SET_HOME,
     DOMAIN,
-    ATTR_AVL_SCHDL,
-    ATTR_PROGRAMS
+    ATTR_AVL_SCHDL
 )
 
 _LOGGER = logging.getLogger(__name__)

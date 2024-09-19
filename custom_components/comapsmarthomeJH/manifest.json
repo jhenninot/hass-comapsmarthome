@@ -1,11 +1,11 @@
 {
-  "codeowners": ["@rbiremon"],
+  "codeowners": ["@jhenninot"],
   "config_flow": true,
   "dependencies": [],
-  "documentation": "https://github.com/rbiremon/hass-comapsmarthome/",
-  "domain": "comapsmarthome",
+  "documentation": "https://github.com/jhenninot/hass-comapsmarthome/",
+  "domain": "comapsmarthome_JH",
   "iot_class": "cloud_polling",
-  "name": "comapsmarthome",
+  "name": "comapsmarthome_JH",
   "requirements": ["httpx","bidict"],
-  "version": "1.1.2"
+  "version": "1.0.0"
 }

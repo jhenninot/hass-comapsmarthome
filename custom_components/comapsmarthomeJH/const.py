@@ -1,4 +1,4 @@
-DOMAIN = "comapsmarthome"
+DOMAIN = "comapsmarthome_JH"
 ATTR_ADDRESS = "address"
 ATTR_TEMPERATURE = "temperature"
 ATTR_AVL_SCHDL = "available_schedules"

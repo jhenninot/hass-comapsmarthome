@@ -29,7 +29,8 @@ from .const import (
     SERVICE_SET_AWAY,
     SERVICE_SET_HOME,
     DOMAIN,
-    ATTR_AVL_SCHDL
+    ATTR_AVL_SCHDL,
+    ATTR_PROGRAMS
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -128,8 +129,11 @@ class ComapHousingSensor(Entity):
         housings = await self.hass.async_add_executor_job(self.client.get_housings)
         self._name = housings[0].get("name")
         self.attrs[ATTR_ADDRESS] = housings[0].get("address")
-        r = await self.get_schedules()
-        self.attrs[ATTR_AVL_SCHDL] = self.parse_schedules(r)
+        schedules = await self.get_schedules()
+        self.attrs[ATTR_AVL_SCHDL] = self.parse_schedules(schedules)
+        self.attrs[ATTR_PROGRAMS] = await self.get_active_program()
+        prg_name = await self.get_active_schedule_name(schedules)
+        self._state = prg_name
 
     async def get_schedules(self):
         r = await self.client.get_schedules()
@@ -140,3 +144,19 @@ class ComapHousingSensor(Entity):
         for schedule in r:
             schedules.update({schedule["id"]: schedule["title"]})
         return schedules
+        
+    async def get_active_program(self):
+        r = await self.client.get_active_program()
+        return r
+    
+    async def get_active_program_name(self):
+        r = await self.client.get_active_program()
+        return r['title']
+        
+    async def get_active_schedule_name(self,schedules):
+        r = await self.client.get_active_program()
+        id = r["zones"][0]["schedule_id"]
+        for schedule in schedules:
+            if (schedule["id"]) == id:
+                return schedule["title"]
+        

@@ -216,6 +216,19 @@ class ComapClient(object):
             self._BASEURL + "thermal/housings/" + housing + "/programs"
         )
 
+    async def get_active_program(self, housing=None):
+        programs = await self.get_programs(housing)
+        active_program = None
+        try:
+            for program in programs["programs"]:
+                if program["is_activated"]:
+                    active_program = program
+        except AttributeError:
+            _LOGGER.error("Could not find active program for Comap housing")
+
+        return active_program
+
+
     async def get_active_schedules(self, housing=None):
         """Returns an array of zones with their active schedules"""
         programs = await self.get_programs(housing)

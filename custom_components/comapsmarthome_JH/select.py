@@ -38,7 +38,7 @@ class CentralModeSelect(SelectEntity):
         super().__init__()
         self.client = client
         self.housing = client.housing
-        self._name = "Programme"
+        self._name = "Planning Comap"
         self._attr_unique_id = "central_mode"
         self._attr_options = []
         self._attr_current_option = None

@@ -131,7 +131,6 @@ class ComapHousingSensor(Entity):
         self.attrs[ATTR_ADDRESS] = housings[0].get("address")
         schedules = await self.get_schedules()
         self.attrs[ATTR_AVL_SCHDL] = self.parse_schedules(schedules)
-        self.attrs[ATTR_PROGRAMS] = await self.get_active_program()
         prg_name = await self.get_active_schedule_name(schedules)
         self._state = prg_name
 
@@ -148,10 +147,6 @@ class ComapHousingSensor(Entity):
     async def get_active_program(self):
         r = await self.client.get_active_program()
         return r
-    
-    async def get_active_program_name(self):
-        r = await self.client.get_active_program()
-        return r['title']
         
     async def get_active_schedule_name(self,schedules):
         r = await self.client.get_active_program()
@@ -159,4 +154,3 @@ class ComapHousingSensor(Entity):
         for schedule in schedules:
             if (schedule["id"]) == id:
                 return schedule["title"]
-        

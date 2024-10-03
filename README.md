@@ -1,5 +1,5 @@
 # hass-comapsmarthome
-A Home Assistant custom component for comap smart home thermostats (qivivo) by Julien
+A Home Assistant custom component for comap smart home thermostats (qivivo)
 
 [![Open your Home Assistant instance and open a repository inside the Home Assistant Community Store.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=rbiremon&repository=hass-comapsmarthome)
 
@@ -12,7 +12,7 @@ It will set up one sensor for the main housing, and climate entities for each zo
 * Thermostat zone: set temperature, current temperature and humidity
 * Pilot wire zone: set preset mode
 * Set home away, home back for housing
-* Set schedule for a given zone (list of schedules is available under housing sensor)
+* Set schedule for all zones (a dedicated select component will automaticcaly craated wiht all available schedules)
 
 Does not support:
 

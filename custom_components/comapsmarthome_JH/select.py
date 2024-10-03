@@ -4,7 +4,6 @@ from typing import Any
 from bidict import bidict
 from homeassistant.core import HomeAssistant
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.components.sensor import PLATFORM_SCHEMA
 from homeassistant.components.select import SelectEntity
 from homeassistant.helpers.device_registry import DeviceInfo
 
@@ -71,8 +70,6 @@ class CentralModeSelect(SelectEntity):
             manufacturer="comap",
         )
 
-
-
     async def async_update(self):
         housings = await self.hass.async_add_executor_job(self.client.get_housings)
         
@@ -102,7 +99,6 @@ class CentralModeSelect(SelectEntity):
             schedules.update({schedule["title"]: schedule["id"]})
         return schedules
 
-
     async def get_active_schedule_name(self,schedules) -> str:
         r = await self.client.get_active_program()
         id = r["zones"][0]["schedule_id"]
@@ -113,6 +109,4 @@ class CentralModeSelect(SelectEntity):
     async def setProgram(self,schedule_id):
         housing_details = await self.client.get_zones()
         for zone in housing_details.get("zones"):
-            await self.client.set_schedule(zone["id"],schedule_id)
-    
-            
+            await self.client.set_schedule(zone["id"],schedule_id)          

@@ -9,7 +9,6 @@ from homeassistant.helpers.device_registry import DeviceInfo
 
 from homeassistant.helpers.typing import (
     ConfigType,
-    HomeAssistantType,
 )
 
 from homeassistant.const import (
@@ -55,7 +54,7 @@ async def async_setup_entry(
 
 
 async def async_setup_platform(
-    hass: HomeAssistantType,
+    hass: HomeAssistant,
     config: ConfigType,
     async_add_entities: AddEntitiesCallback,
 ) -> None:

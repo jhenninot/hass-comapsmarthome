@@ -22,7 +22,6 @@ from homeassistant.components.climate.const import (
 from homeassistant.helpers.typing import (
     ConfigType,
     DiscoveryInfoType,
-    HomeAssistantType,
 )
 
 from homeassistant.const import (

@@ -9,7 +9,10 @@ from homeassistant import config_entries, core
 from homeassistant.exceptions import ConfigEntryAuthFailed
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 
-from .const import DOMAIN
+from .const import (
+    DOMAIN,
+    PLATFORMS,
+)
 
 from .comap import ComapClient, ComapClientException
 
@@ -22,7 +25,7 @@ async def async_setup_entry(
     """Set up platform from a ConfigEntry."""
     hass.data.setdefault(DOMAIN, {})
     hass.data[DOMAIN][entry.entry_id] = entry.data
-
+    """
     # Forward the setup to the sensor platform.
     hass.async_create_task(
         hass.config_entries.async_forward_entry_setup(entry, "climate")
@@ -41,7 +44,8 @@ async def async_setup_entry(
     hass.async_create_task(
         hass.config_entries.async_forward_entry_setup(entry, "select")
     )
-
+    """
+    await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     return True
 
 

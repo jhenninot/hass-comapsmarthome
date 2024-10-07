@@ -158,6 +158,11 @@ class ComapBatterySensor(Entity):
     def name(self):
         """Return the name of the sensor."""
         return "Comap Test Battery"
+    
+    @property
+    def unique_id(self) -> str:
+        """Return the unique ID of the sensor."""
+        return self.client.housing + "_battery"
 
     @property
     def state(self):

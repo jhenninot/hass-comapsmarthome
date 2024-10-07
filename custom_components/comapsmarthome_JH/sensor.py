@@ -52,7 +52,7 @@ async def async_setup_platform(
 ) -> None:
 
     client = ComapClient(username=config[CONF_USERNAME], password=config[CONF_PASSWORD])
-    
+
     connected_objects = await client.get_housing_connected_objects()
     obj_list = []
     for object in connected_objects:
@@ -174,25 +174,23 @@ class ComapBatterySensor(Entity):
 
     @property
     def name(self):
-        """Return the name of the sensor."""
-        return "Comap Test Battery" + self.sn
+        return "Batterie Comap " + self.sn
     
     @property
     def unique_id(self) -> str:
-        """Return the unique ID of the sensor."""
         return "comap_battery_" + self.sn
     @property
     def state(self):
-        """Return the state of the sensor."""
-        # Remplacez par la logique qui récupère l'état actuel de la batterie
         return self._state
 
     @property
     def unit_of_measurement(self):
-        """Return the unit of measurement."""
         return PERCENTAGE
 
     async def async_update(self):
-        """Fetch new state data for the sensor."""
-        # Mettre à jour l'état ici en appelant votre client Comap pour récupérer la batterie
-        self._state = self._batt
+        batt = self._batt
+        objects = self.client.get_housing_connected_objects()
+        for object in objects:
+            if object.get("serial_number") == self.sn:
+                batt = object.get("voltage_percent")
+        self._state = batt

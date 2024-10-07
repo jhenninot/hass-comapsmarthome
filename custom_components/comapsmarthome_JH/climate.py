@@ -141,7 +141,6 @@ class ComapZoneThermostat(CoordinatorEntity[ComapCoordinator], ClimateEntity):
         self._hvac_mode: HVACMode = self.map_hvac_mode(zone.get("heating_status"))
         self.attrs: dict[str, Any] = {}
         self.added = False
-        self.attrs["TEST"] = "TOTO"
 
     @property
     def device_info(self) -> DeviceInfo:
@@ -242,6 +241,7 @@ class ComapZoneThermostat(CoordinatorEntity[ComapCoordinator], ClimateEntity):
         self.attributes_update(zone_data)
         if self.added == True:
             self.async_write_ha_state()
+            self.attrs["TEST"] = "toto"
 
     def attributes_update(self, zone_data):
         self._current_temperature = zone_data.get("temperature")

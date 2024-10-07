@@ -170,15 +170,16 @@ class ComapBatterySensor(Entity):
         self.housing = client.housing
         self._unique_id = "comap_batt_" + batt_sensor.get("serial_number")
         self.sn = batt_sensor.get("serial_number")
+        self.model = batt_sensor.get("model")
         self._batt = batt_sensor.get("voltage_percent")
 
     @property
     def name(self):
-        return "Batterie Comap " + self.sn
+        return "Batterie " + self.model + " Comap " + self.sn
     
     @property
     def unique_id(self) -> str:
-        return "comap_battery_" + self.sn
+        return "comap_battery_" + self.model + "_"+ self.sn
     @property
     def state(self):
         return self._state

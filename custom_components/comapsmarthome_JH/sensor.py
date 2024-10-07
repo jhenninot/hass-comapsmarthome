@@ -52,12 +52,21 @@ async def async_setup_platform(
 ) -> None:
 
 
+    connected_objects = await client.get_housing_connected_objects()
+    obj_list = []
+    for object in connected_objects:
+        if ('voltage_percent' in object):
+            obj_list.append(object)
+    
+    battery_sensors = [
+        ComapBatterySensor(client,batt_sensor)
+        for batt_sensor in obj_list
+    ]
 
     client = ComapClient(username=config[CONF_USERNAME], password=config[CONF_PASSWORD])
     housing_sensor = ComapHousingSensor(client)
-    battery_sensor = ComapBatterySensor(client)
 
-    async_add_entities([housing_sensor, battery_sensor], update_before_add=True)
+    async_add_entities([housing_sensor, battery_sensors], update_before_add=True)
 
     async def set_away(call):
         """Set home away."""
@@ -151,24 +160,25 @@ class ComapHousingSensor(Entity):
             
 
 class ComapBatterySensor(Entity):
-    def __init__(self, client):
+    def __init__(self, client, batt_sensor):
         super().__init__()
         """Initialize the battery sensor."""
         self.client = client
-        self._state = None
+        self._state = batt_sensor.get("voltage_percent")
         self.housing = client.housing
-        self.attrs: dict[str, Any] = {}
+        self._unique_id = "comap_batt_" + batt_sensor.get("serial_number")
+        self.sn = batt_sensor.get("serial_number")
+        self._batt = batt_sensor.get("voltage_percent")
 
     @property
     def name(self):
         """Return the name of the sensor."""
-        return "Comap Test Battery"
+        return "Comap Test Battery" + self.sn
     
     @property
     def unique_id(self) -> str:
         """Return the unique ID of the sensor."""
-        return self.client.housing + "_battery"
-
+        return "comap_battery_" + self.sn
     @property
     def state(self):
         """Return the state of the sensor."""
@@ -183,5 +193,4 @@ class ComapBatterySensor(Entity):
     async def async_update(self):
         """Fetch new state data for the sensor."""
         # Mettre à jour l'état ici en appelant votre client Comap pour récupérer la batterie
-        self.attrs["TEST"] = await self.client.get_housing_connected_objects()
-        self._state = 25
+        self._state = self._batt

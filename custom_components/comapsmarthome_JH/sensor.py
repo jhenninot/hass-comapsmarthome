@@ -51,7 +51,8 @@ async def async_setup_platform(
     async_add_entities: AddEntitiesCallback,
 ) -> None:
 
-
+    client = ComapClient(username=config[CONF_USERNAME], password=config[CONF_PASSWORD])
+    
     connected_objects = await client.get_housing_connected_objects()
     obj_list = []
     for object in connected_objects:
@@ -62,8 +63,6 @@ async def async_setup_platform(
         ComapBatterySensor(client,batt_sensor)
         for batt_sensor in obj_list
     ]
-
-    client = ComapClient(username=config[CONF_USERNAME], password=config[CONF_PASSWORD])
 
     housing_sensor = ComapHousingSensor(client)
 

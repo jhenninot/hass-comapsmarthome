@@ -166,7 +166,7 @@ class ComapClient(object):
             housing = self.housing
         return self.get_request(
             self._BASEURL
-            + "thermal/housings/"
+            + "housings/"
             + housing
             + "/connected-objects"
         )

@@ -177,6 +177,7 @@ class ComapBatterySensor(Entity):
     def name(self):
         return "Batterie " + self.model + " Comap " + self.sn
     
+    @property
     def icon(self) -> str:
         return "mdi:battery"
 

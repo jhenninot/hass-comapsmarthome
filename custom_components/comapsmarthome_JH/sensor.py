@@ -188,7 +188,7 @@ class ComapBatterySensor(Entity):
         return PERCENTAGE
 
     async def async_update(self):
-        batt = self._batt
+        batt = None
         objects = await self.client.get_housing_connected_objects()
         for object in objects:
             if object.get("serial_number") == self.sn:

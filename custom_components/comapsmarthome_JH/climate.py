@@ -255,6 +255,7 @@ class ComapZoneThermostat(CoordinatorEntity[ComapCoordinator], ClimateEntity):
             self._preset_mode = self.map_preset_mode(
                 zone_data.get("set_point").get("instruction")
             )
+        self.attrs["TEST"] = zone_data
 
     def map_hvac_mode(self, comap_mode):
         hvac_mode_map = {"cooling": HVACMode.OFF, "heating": HVACMode.HEAT}

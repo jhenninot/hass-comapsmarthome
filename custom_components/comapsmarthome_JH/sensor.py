@@ -125,6 +125,7 @@ class ComapHousingSensor(Entity):
         r = await self.get_schedules()
         self.attrs[ATTR_AVL_SCHDL] = self.parse_schedules(r)
         prg_name = await self.get_active_schedule_name(r)
+        self.attrs["TEST"] = await self.client.get_housing_connected_objects()
         self._state = prg_name
 
     async def get_schedules(self):

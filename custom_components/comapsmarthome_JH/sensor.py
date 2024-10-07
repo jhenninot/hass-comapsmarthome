@@ -153,6 +153,7 @@ class ComapBatterySensor(Entity):
         """Initialize the battery sensor."""
         self._client = client
         self._state = None
+        self.housing = client.housing
 
     @property
     def name(self):

@@ -182,5 +182,5 @@ class ComapBatterySensor(Entity):
     async def async_update(self):
         """Fetch new state data for the sensor."""
         # Mettre à jour l'état ici en appelant votre client Comap pour récupérer la batterie
-        self.attrs["TEST"] = self.client.get_housing_connected_objects()
+        self.attrs["TEST"] = await self.client.get_housing_connected_objects()
         self._state = 25

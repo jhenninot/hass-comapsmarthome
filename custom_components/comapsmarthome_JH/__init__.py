@@ -23,7 +23,7 @@ async def async_setup_entry(
 
     # Forward the setup to the sensor platform.
     await hass.config_entries.async_forward_entry_setups(
-        entry, ["climate", "sensor", "binary_sensor", "switch", "select", "batt"]
+        entry, ["climate", "sensor", "binary_sensor", "switch", "select"]
     )
 
     return True

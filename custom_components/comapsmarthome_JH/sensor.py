@@ -53,8 +53,10 @@ async def async_setup_platform(
     """Set up the comapsmarthome platform."""
 
     client = ComapClient(username=config[CONF_USERNAME], password=config[CONF_PASSWORD])
-    housing = [ComapHousingSensor(client)]
-    async_add_entities(housing, update_before_add=True)
+    housing_sensor = ComapHousingSensor(client)
+    battery_sensor = ComapBatterySensor(client)
+
+    async_add_entities([housing_sensor, battery_sensor], update_before_add=True)
 
     async def set_away(call):
         """Set home away."""
@@ -144,3 +146,31 @@ class ComapHousingSensor(Entity):
         for schedule in schedules:
             if (schedule["id"]) == id:
                 return schedule["title"]
+            
+
+class ComapBatterySensor(Entity):
+    def __init__(self, client):
+        """Initialize the battery sensor."""
+        self._client = client
+        self._state = None
+
+    @property
+    def name(self):
+        """Return the name of the sensor."""
+        return "Comap Test Battery"
+
+    @property
+    def state(self):
+        """Return the state of the sensor."""
+        # Remplacez par la logique qui récupère l'état actuel de la batterie
+        return self._state
+
+    @property
+    def unit_of_measurement(self):
+        """Return the unit of measurement."""
+        return PERCENTAGE
+
+    async def async_update(self):
+        """Fetch new state data for the sensor."""
+        # Mettre à jour l'état ici en appelant votre client Comap pour récupérer la batterie
+        self._state = 25

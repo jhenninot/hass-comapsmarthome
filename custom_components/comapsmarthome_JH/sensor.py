@@ -58,15 +58,18 @@ async def async_setup_platform(
         if ('voltage_percent' in object):
             obj_list.append(object)
     
-    battery_sensors = [
+    sensors = [
         ComapBatterySensor(client,batt_sensor)
         for batt_sensor in obj_list
     ]
 
     client = ComapClient(username=config[CONF_USERNAME], password=config[CONF_PASSWORD])
+
     housing_sensor = ComapHousingSensor(client)
 
-    async_add_entities([housing_sensor, battery_sensors], update_before_add=True)
+    sensors.append(housing_sensor)
+
+    async_add_entities(sensors, update_before_add=True)
 
     async def set_away(call):
         """Set home away."""

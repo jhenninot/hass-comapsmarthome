@@ -159,6 +159,23 @@ class ComapClient(object):
             + "/thermal-details/zones/"
             + zoneid
         )
+    
+    def get_housing_connected_objects(self, housing=None):
+        """Get a list of all objects in the specified housing"""
+        return self.get_request(
+            self._BASEURL
+            + "thermal/housings/"
+            + housing
+            + "/connected-objects"
+        )
+    
+    def get_connected_object(self, serial):
+        """Get object details"""
+        return self.get_request(
+            self._BASEURL
+            + "connected-objects/"
+            + serial
+        )
 
     async def leave_home(self, housing=None):
         if housing is None:

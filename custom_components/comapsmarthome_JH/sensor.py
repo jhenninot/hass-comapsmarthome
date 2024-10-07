@@ -50,7 +50,8 @@ async def async_setup_platform(
     config: ConfigType,
     async_add_entities: AddEntitiesCallback,
 ) -> None:
-    """Set up the comapsmarthome platform."""
+
+
 
     client = ComapClient(username=config[CONF_USERNAME], password=config[CONF_PASSWORD])
     housing_sensor = ComapHousingSensor(client)
@@ -155,6 +156,7 @@ class ComapBatterySensor(Entity):
         self.client = client
         self._state = None
         self.housing = client.housing
+        self.attrs: dict[str, Any] = {}
 
     @property
     def name(self):
@@ -180,5 +182,5 @@ class ComapBatterySensor(Entity):
     async def async_update(self):
         """Fetch new state data for the sensor."""
         # Mettre à jour l'état ici en appelant votre client Comap pour récupérer la batterie
-
+        self.attrs["TEST"] = self.client.get_housing_connected_objects()
         self._state = 25

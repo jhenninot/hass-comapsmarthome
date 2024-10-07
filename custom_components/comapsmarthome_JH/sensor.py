@@ -178,8 +178,12 @@ class ComapBatterySensor(Entity):
         return "Batterie " + self.model + " Comap " + self.sn
     
     @property
-    def icon(self) -> str:
-        return "mdi:battery"
+    def battery(self) -> str:
+        return self._state
+    
+    @property
+    def device_class(self) -> str:
+        return "battery"
 
     @property
     def unique_id(self) -> str:

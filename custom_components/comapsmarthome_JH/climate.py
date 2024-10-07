@@ -141,6 +141,7 @@ class ComapZoneThermostat(CoordinatorEntity[ComapCoordinator], ClimateEntity):
         self._hvac_mode: HVACMode = self.map_hvac_mode(zone.get("heating_status"))
         self.attrs: dict[str, Any] = {}
         self.added = False
+        self.attrs["TEST"] = "TOTO"
 
     @property
     def device_info(self) -> DeviceInfo:

@@ -150,8 +150,9 @@ class ComapHousingSensor(Entity):
 
 class ComapBatterySensor(Entity):
     def __init__(self, client):
+        super().__init__()
         """Initialize the battery sensor."""
-        self._client = client
+        self.client = client
         self._state = None
         self.housing = client.housing
 
@@ -179,4 +180,5 @@ class ComapBatterySensor(Entity):
     async def async_update(self):
         """Fetch new state data for the sensor."""
         # Mettre à jour l'état ici en appelant votre client Comap pour récupérer la batterie
+
         self._state = 25

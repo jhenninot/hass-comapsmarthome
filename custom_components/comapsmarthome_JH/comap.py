@@ -162,6 +162,8 @@ class ComapClient(object):
     
     def get_housing_connected_objects(self, housing=None):
         """Get a list of all objects in the specified housing"""
+        if housing is None:
+            housing = self.housing
         return self.get_request(
             self._BASEURL
             + "thermal/housings/"

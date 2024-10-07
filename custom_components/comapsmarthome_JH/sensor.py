@@ -189,7 +189,7 @@ class ComapBatterySensor(Entity):
 
     async def async_update(self):
         batt = self._batt
-        objects = self.client.get_housing_connected_objects()
+        objects = await self.client.get_housing_connected_objects()
         for object in objects:
             if object.get("serial_number") == self.sn:
                 batt = object.get("voltage_percent")

@@ -32,16 +32,9 @@ async def async_setup_entry(
     
     req = await client.get_zones()
     zones = req.get("zones")
-    obj_zone_names = {}
-    obj_zone_ids = {}
-    for zone in zones:
-        zone_obj = zone.get("connected_objects")
-        for obj_serial in zone_obj:
-            obj_zone_names[obj_serial] = zone.get("title")
-            obj_zone_ids[obj_serial] = zone.get("id")
 
     zones_selects = [
-        ZoneModeSelect(client, zone, obj_zone_ids)
+        ZoneModeSelect(client, zone)
         for zone in zones
     ]
 
@@ -60,6 +53,7 @@ class CentralModeSelect(SelectEntity):
         self.client = client
         self.housing = client.housing
         self._name = "Planning Comap"
+        self.device_name = client.get_housings()[0].get("name")
         self._attr_unique_id = "central_mode"
         self._attr_options = []
         self._attr_current_option = None
@@ -88,7 +82,7 @@ class CentralModeSelect(SelectEntity):
                 # Serial numbers are unique identifiers within a specific domain
                 (DOMAIN, self.unique_id)
             },
-            name=self._name,
+            name=self.device_name,
             manufacturer="comap",
         )
 
@@ -143,6 +137,7 @@ class ZoneModeSelect(SelectEntity):
         self._name = "Planning Comap zone " + zone.get("title")
         self.zone_id = zone.get("id")
         self._attr_unique_id = "zone_mode_" + zone.get("title")
+        self.zone_name = zone.get("title")
         self._attr_options = []
         self._attr_current_option = None
         self.modes = {}
@@ -169,7 +164,7 @@ class ZoneModeSelect(SelectEntity):
                 # Serial numbers are unique identifiers within a specific domain
                 (DOMAIN, self.unique_id)
             },
-            name=self._name,
+            name=self.zone_name,
             manufacturer="comap",
             serial_number = self.zone_id
         )

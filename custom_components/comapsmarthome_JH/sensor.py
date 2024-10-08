@@ -220,7 +220,7 @@ class ComapBatterySensor(Entity):
                 # Serial numbers are unique identifiers within a specific domain
                 (DOMAIN, self.zone_id)
             },
-            name = self.name,
+            name = self.zone_name,
             manufacturer = "comap",
             serial_number = self.zone_id
         )
@@ -305,7 +305,7 @@ class ComapDeviceSensor(Entity):
                 # Serial numbers are unique identifiers within a specific domain
                 (DOMAIN, self.zone_id)
             },
-            name = self.name,
+            name = self.zone_name,
             manufacturer = "comap",
             serial_number = self.zone_id
         )

@@ -54,19 +54,24 @@ async def async_setup_platform(
     client = ComapClient(username=config[CONF_USERNAME], password=config[CONF_PASSWORD])
 
     connected_objects = await client.get_housing_connected_objects()
-    obj_list = []
+    batt_list = []
     for object in connected_objects:
         if ('voltage_percent' in object):
-            obj_list.append(object)
+            batt_list.append(object)
     
-    sensors = [
+    batt_sensors = [
         ComapBatterySensor(client,batt_sensor)
-        for batt_sensor in obj_list
+        for batt_sensor in batt_sensors
     ]
 
-    housing_sensor = ComapHousingSensor(client)
+    device_sensors = [
+        ComapDeviceSensor(client.device_sensor)
+        for device_sensor in connected_objects
+    ]
 
-    sensors.append(housing_sensor)
+    housing_sensors = [ComapHousingSensor(client)]
+
+    sensors = housing_sensors + device_sensors + batt_sensors
 
     async_add_entities(sensors, update_before_add=True)
 
@@ -168,7 +173,7 @@ class ComapBatterySensor(Entity):
         self.client = client
         self._state = batt_sensor.get("voltage_percent")
         self.housing = client.housing
-        self._unique_id = "comap_batt_" + batt_sensor.get("serial_number")
+        self._unique_id = "comap_battery_" + self.model + "_"+ self.sn
         self.sn = batt_sensor.get("serial_number")
         self.model = batt_sensor.get("model")
         self._batt = batt_sensor.get("voltage_percent")
@@ -187,7 +192,7 @@ class ComapBatterySensor(Entity):
 
     @property
     def unique_id(self) -> str:
-        return "comap_battery_" + self.model + "_"+ self.sn
+        return self._unique_id
     @property
     def state(self):
         return self._state
@@ -203,3 +208,65 @@ class ComapBatterySensor(Entity):
             if object.get("serial_number") == self.sn:
                 batt = object.get("voltage_percent")
         self._state = batt
+
+class ComapDeviceSensor(Entity):
+    def __init__(self, client, device_sensor):
+        super().__init__()
+        self.client = client
+        self.housing = client.housing
+        self._state = None
+        self._available = True
+        self._unique_id = "comap_device_" + device_sensor.get("serial_number")
+        self.sn = device_sensor.get("serial_number")
+        self.model = device_sensor.get("model")
+        self.attrs: dict[str, Any] = {}
+        self._name = self.model.capitalize() + " Comap " + self.sn
+
+    @property
+    def name(self) -> str:
+        """Return the name of the entity."""
+        return self._name
+
+    @property
+    def unique_id(self) -> str:
+        """Return the unique ID of the sensor."""
+        return self._unique_id
+
+    @property
+    def available(self) -> bool:
+        """Return True if entity is available."""
+        return self._available
+
+    @property
+    def state(self) -> Optional[str]:
+        return self._state
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        return self.attrs
+
+    @property
+    def device_info(self) -> DeviceInfo:
+        """Return the device info."""
+        return DeviceInfo(
+            identifiers={
+                # Serial numbers are unique identifiers within a specific domain
+                (DOMAIN, self.unique_id)
+            },
+            name=self.name,
+            manufacturer="comap",
+        )
+
+    async def async_update(self):
+        objects = await self.client.get_housing_connected_objects()
+        for object in objects:
+            if object.get("serial_number") == self.sn:
+                self.attrs = object
+                self._state = object.get("communication_status")
+        
+        
+        
+        
+        
+
+    

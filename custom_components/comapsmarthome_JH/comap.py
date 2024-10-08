@@ -171,13 +171,18 @@ class ComapClient(object):
             + "/connected-objects"
         )
     
-    def get_connected_object(self, serial):
-        """Get object details"""
+    async def get_eligible_zones(self, serial, housing=None):
+        if housing is None:
+            housing = self.housing
+        """Get eligible zones for specified object"""
         return self.get_request(
             self._BASEURL
-            + "connected-objects/"
+            + "thermal/housings/"
+            + housing
+            + "/eligible-zones/"
             + serial
         )
+
 
     async def leave_home(self, housing=None):
         if housing is None:

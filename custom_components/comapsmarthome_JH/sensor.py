@@ -57,12 +57,13 @@ async def async_setup_platform(
 
     req = await client.get_zones()
     zones = req.get("zones")
-    _LOGGER.warning(zones)
     obj_zone_names = {}
+    obj_zone_ids = {}
     for zone in zones:
         zone_obj = zone.get("connected_objects")
         for obj_serial in zone_obj:
             obj_zone_names[obj_serial] = zone.get("title")
+            obj_zone_ids[obj_serial] = zone.get("id")
 
     batt_list = []
     for object in connected_objects:
@@ -70,12 +71,12 @@ async def async_setup_platform(
             batt_list.append(object)
     
     batt_sensors = [
-        ComapBatterySensor(client, batt_sensor, obj_zone_names)
+        ComapBatterySensor(client, batt_sensor, obj_zone_names, obj_zone_ids)
         for batt_sensor in batt_list
     ]
 
     device_sensors = [
-        ComapDeviceSensor(client, device_sensor, obj_zone_names)
+        ComapDeviceSensor(client, device_sensor, obj_zone_names, obj_zone_ids)
         for device_sensor in connected_objects
     ]
 
@@ -117,7 +118,7 @@ class ComapHousingSensor(Entity):
     @property
     def unique_id(self) -> str:
         """Return the unique ID of the sensor."""
-        return self.client.housing
+        return self.client.housing + "_sensor"
 
     @property
     def available(self) -> bool:
@@ -173,11 +174,10 @@ class ComapHousingSensor(Entity):
         id = r["zones"][0]["schedule_id"]
         for schedule in schedules:
             if (schedule["id"]) == id:
-                return schedule["title"]
-            
+                return schedule["title"]           
 
 class ComapBatterySensor(Entity):
-    def __init__(self, client, batt_sensor, obj_zone_names):
+    def __init__(self, client, batt_sensor, obj_zone_names, obj_zone_ids):
         super().__init__()
         """Initialize the battery sensor."""
         self.client = client
@@ -191,6 +191,10 @@ class ComapBatterySensor(Entity):
         if (self.sn in obj_zone_names):
             self.zone_name = obj_zone_names.get(self.sn)
         self._name = "Batterie " + self.model + " " + self.zone_name
+        self.zone_id = self.housing
+        if (self.sn in obj_zone_ids):
+            self.zone_id = obj_zone_ids.get(self.sn)
+
 
     @property
     def name(self):
@@ -206,7 +210,7 @@ class ComapBatterySensor(Entity):
 
     @property
     def unique_id(self) -> str:
-        return "comap_battery_" + self.model + "_"+ self.sn
+        return self.zone_id + "_battery_" + self.sn
     
     @property
     def device_info(self) -> DeviceInfo:
@@ -214,10 +218,11 @@ class ComapBatterySensor(Entity):
         return DeviceInfo(
             identifiers={
                 # Serial numbers are unique identifiers within a specific domain
-                (DOMAIN, self.unique_id)
+                (DOMAIN, self.sn)
             },
-            name=self.name,
-            manufacturer="comap",
+            name = self.name,
+            manufacturer = "comap",
+            serial_number = self.zone_id
         )
 
     @property
@@ -237,7 +242,7 @@ class ComapBatterySensor(Entity):
         self._state = batt
 
 class ComapDeviceSensor(Entity):
-    def __init__(self, client, device_sensor, obj_zone_names):
+    def __init__(self, client, device_sensor, obj_zone_names, obj_zone_ids):
         super().__init__()
         self.client = client
         self.housing = client.housing
@@ -252,6 +257,10 @@ class ComapDeviceSensor(Entity):
         if (self.sn in obj_zone_names):
             self.zone_name = obj_zone_names.get(self.sn)
         self._name = self.model.capitalize() + " " + self.zone_name
+        self.zone_id = self.housing
+        if (self.sn in obj_zone_ids):
+            self.zone_id = obj_zone_ids.get(self.sn)
+
 
     @property
     def name(self) -> str:
@@ -273,7 +282,7 @@ class ComapDeviceSensor(Entity):
     @property
     def unique_id(self) -> str:
         """Return the unique ID of the sensor."""
-        return "comap_device_" + self.device_sensor.get("serial_number")
+        return self.zone_id + "_" + self.model + "_" + self.sn
 
     @property
     def available(self) -> bool:
@@ -294,10 +303,11 @@ class ComapDeviceSensor(Entity):
         return DeviceInfo(
             identifiers={
                 # Serial numbers are unique identifiers within a specific domain
-                (DOMAIN, self.unique_id)
+                (DOMAIN, self.sn)
             },
-            name=self.name,
-            manufacturer="comap",
+            name = self.name,
+            manufacturer = "comap",
+            serial_number = self.zone_id
         )
 
     async def async_update(self):

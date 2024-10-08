@@ -150,8 +150,9 @@ class ComapZoneThermostat(CoordinatorEntity[ComapCoordinator], ClimateEntity):
                 # Serial numbers are unique identifiers within a specific domain
                 (DOMAIN, self.zone_id)
             },
-            name=self._name,
-            manufacturer="comap",
+            name = self._name,
+            manufacturer = "comap",
+            serial_number = self.zone_id
         )
 
     @property

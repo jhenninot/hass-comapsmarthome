@@ -139,10 +139,11 @@ class ComapHousingSensor(Entity):
         return DeviceInfo(
             identifiers={
                 # Serial numbers are unique identifiers within a specific domain
-                (DOMAIN, self.unique_id)
+                (DOMAIN, self.client.housing)
             },
             name=self.name,
             manufacturer="comap",
+            serial_number = self.client.housing
         )
 
     async def async_update(self):

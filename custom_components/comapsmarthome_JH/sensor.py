@@ -218,7 +218,7 @@ class ComapBatterySensor(Entity):
         return DeviceInfo(
             identifiers={
                 # Serial numbers are unique identifiers within a specific domain
-                (DOMAIN, self.sn)
+                (DOMAIN, self.zone_id)
             },
             name = self.name,
             manufacturer = "comap",
@@ -303,7 +303,7 @@ class ComapDeviceSensor(Entity):
         return DeviceInfo(
             identifiers={
                 # Serial numbers are unique identifiers within a specific domain
-                (DOMAIN, self.sn)
+                (DOMAIN, self.zone_id)
             },
             name = self.name,
             manufacturer = "comap",

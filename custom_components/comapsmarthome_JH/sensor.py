@@ -61,7 +61,7 @@ async def async_setup_platform(
     
     batt_sensors = [
         ComapBatterySensor(client,batt_sensor)
-        for batt_sensor in batt_sensors
+        for batt_sensor in batt_list
     ]
 
     device_sensors = [

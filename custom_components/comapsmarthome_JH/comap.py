@@ -175,13 +175,19 @@ class ComapClient(object):
         if housing is None:
             housing = self.housing
         """Get eligible zones for specified object"""
-        return self.get_request(
+        try:
+            return self.get_request(
             self._BASEURL
             + "thermal/housings/"
             + housing
             + "/eligible-zones/"
             + serial
         )
+        except:
+            return None
+
+
+        
 
 
     async def leave_home(self, housing=None):

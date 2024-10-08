@@ -54,19 +54,28 @@ async def async_setup_platform(
     client = ComapClient(username=config[CONF_USERNAME], password=config[CONF_PASSWORD])
 
     connected_objects = await client.get_housing_connected_objects()
-    
+
+    req = await client.get_zones()
+    zones = req.get("zones")
+    _LOGGER.warning(zones)
+    obj_zone_names = {}
+    for zone in zones:
+        zone_obj = zone.get("connected_objects")
+        for obj_serial in zone_obj:
+            obj_zone_names[obj_serial] = zone.get("title")
+
     batt_list = []
     for object in connected_objects:
         if ('voltage_percent' in object):
             batt_list.append(object)
     
     batt_sensors = [
-        ComapBatterySensor(client, batt_sensor)
+        ComapBatterySensor(client, batt_sensor, obj_zone_names)
         for batt_sensor in batt_list
     ]
 
     device_sensors = [
-        ComapDeviceSensor(client, device_sensor)
+        ComapDeviceSensor(client, device_sensor, obj_zone_names)
         for device_sensor in connected_objects
     ]
 
@@ -142,7 +151,7 @@ class ComapHousingSensor(Entity):
         r = await self.get_schedules()
         self.attrs[ATTR_AVL_SCHDL] = self.parse_schedules(r)
         prg_name = await self.get_active_schedule_name(r)
-        self.attrs["TEST"] = await self.client.get_housing_connected_objects()
+        self.attrs["ZONES"] = await self.client.get_zones()
         self._state = prg_name
 
     async def get_schedules(self):
@@ -168,7 +177,7 @@ class ComapHousingSensor(Entity):
             
 
 class ComapBatterySensor(Entity):
-    def __init__(self, client, batt_sensor):
+    def __init__(self, client, batt_sensor, obj_zone_names):
         super().__init__()
         """Initialize the battery sensor."""
         self.client = client
@@ -178,10 +187,14 @@ class ComapBatterySensor(Entity):
         self.sn = batt_sensor.get("serial_number")
         self.model = batt_sensor.get("model")
         self._batt = batt_sensor.get("voltage_percent")
+        self.zone_name = ""
+        if (self.sn in obj_zone_names):
+            self.zone_name = obj_zone_names.get(self.sn)
+        self._name = "Batterie " + self.model + " " + self.zone_name
 
     @property
     def name(self):
-        return "Batterie " + self.model + " Comap " + self.sn
+        return self._name
     
     @property
     def battery(self) -> str:
@@ -211,7 +224,7 @@ class ComapBatterySensor(Entity):
         self._state = batt
 
 class ComapDeviceSensor(Entity):
-    def __init__(self, client, device_sensor):
+    def __init__(self, client, device_sensor, obj_zone_names):
         super().__init__()
         self.client = client
         self.housing = client.housing
@@ -222,7 +235,10 @@ class ComapDeviceSensor(Entity):
         self.model = device_sensor.get("model")
         self.attrs: dict[str, Any] = {}
         self.device_sensor = device_sensor
-        self._name = self.model.capitalize() + " Comap " + self.sn
+        self.zone_name = ""
+        if (self.sn in obj_zone_names):
+            self.zone_name = obj_zone_names.get(self.sn)
+        self._name = self.model.capitalize() + " " + self.zone_name
 
     @property
     def name(self) -> str:
@@ -240,8 +256,6 @@ class ComapDeviceSensor(Entity):
             return icons.get(self.model)
         
         return "mdi:help-rhombus"
-
-
 
     @property
     def unique_id(self) -> str:
@@ -281,10 +295,3 @@ class ComapDeviceSensor(Entity):
                 self.attrs = object
                 self._state = object.get("communication_status")
         self.attrs["Zones"] = zones
-        
-        
-        
-        
-        
-
-    

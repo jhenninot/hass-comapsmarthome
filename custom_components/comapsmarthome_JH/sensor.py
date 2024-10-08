@@ -207,6 +207,19 @@ class ComapBatterySensor(Entity):
     @property
     def unique_id(self) -> str:
         return "comap_battery_" + self.model + "_"+ self.sn
+    
+    @property
+    def device_info(self) -> DeviceInfo:
+        """Return the device info."""
+        return DeviceInfo(
+            identifiers={
+                # Serial numbers are unique identifiers within a specific domain
+                (DOMAIN, self.unique_id)
+            },
+            name=self.name,
+            manufacturer="comap",
+        )
+
     @property
     def state(self):
         return self._state

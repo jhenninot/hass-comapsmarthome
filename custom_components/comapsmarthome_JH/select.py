@@ -6,6 +6,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.components.select import SelectEntity
 from homeassistant.helpers.device_registry import DeviceInfo
+from homeassistant.helpers.typing import ConfigType
 
 
 from homeassistant.const import (
@@ -19,13 +20,18 @@ from .const import (
     DOMAIN,
 )
 
-SCAN_INTERVAL = timedelta(minutes=5)
+SCAN_INTERVAL = timedelta(minutes=1)
 
 async def async_setup_entry(
     hass: HomeAssistant,
     config_entry: ConfigEntry,
+    config_type: ConfigType,
     async_add_entities,
 ) -> None:
+    
+    # Extraire la valeur de l'intervalle de scan depuis la configuration
+    scan_interval_minutes = config_type.get(CONF_SCAN_INTERVAL, 1)
+    scan_interval = timedelta(minutes=scan_interval_minutes)
     
     config = hass.data[DOMAIN][config_entry.entry_id]
     client = ComapClient(username=config[CONF_USERNAME], password=config[CONF_PASSWORD])
@@ -34,11 +40,11 @@ async def async_setup_entry(
     zones = req.get("zones")
 
     zones_selects = [
-        ZoneModeSelect(client, zone)
+        ZoneModeSelect(client, scan_interval, zone)
         for zone in zones
     ]
 
-    central_select = CentralModeSelect(client, related_entities=zones_selects)
+    central_select = CentralModeSelect(client, scan_interval, related_entities=zones_selects)
 
     selects = [central_select] + zones_selects
 
@@ -48,8 +54,9 @@ async def async_setup_entry(
 class CentralModeSelect(SelectEntity):
     """Representation of the central mode choice"""
 
-    def __init__(self, client, related_entities):
+    def __init__(self, client, scan_interval, related_entities):
         super().__init__()
+        self._scan_interval = scan_interval
         self.client = client
         self.housing = client.housing
         self._name = "Planning Comap"
@@ -60,6 +67,11 @@ class CentralModeSelect(SelectEntity):
         self.modes = {}
         self.related_entities = related_entities or []
 
+    @property
+    def scan_interval(self) -> timedelta:
+        """Retourne l'intervalle de scan défini."""
+        return self._scan_interval
+    
     @property
     def icon(self) -> str:
         return "mdi:form-select"
@@ -130,8 +142,9 @@ class CentralModeSelect(SelectEntity):
 class ZoneModeSelect(SelectEntity):
     """Representation of the central mode choice"""
 
-    def __init__(self, client, zone):
+    def __init__(self, client, scan_interval, zone):
         super().__init__()
+        self._scan_interval = scan_interval
         self.client = client
         self.housing = client.housing
         self._name = "Planning Comap zone " + zone.get("title")
@@ -141,6 +154,11 @@ class ZoneModeSelect(SelectEntity):
         self._attr_options = []
         self._attr_current_option = None
         self.modes = {}
+    
+    @property
+    def scan_interval(self) -> timedelta:
+        """Retourne l'intervalle de scan défini."""
+        return self._scan_interval
 
     @property
     def icon(self) -> str:

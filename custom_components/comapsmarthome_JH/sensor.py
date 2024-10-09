@@ -25,8 +25,6 @@ from .const import (
 
 _LOGGER = logging.getLogger(__name__)
 
-SCAN_INTERVAL = timedelta(minutes=1)
-
 SENSOR_PLATFORM_SCHEMA = SENSOR_PLATFORM_SCHEMA.extend(
     {
         vol.Required(CONF_USERNAME): cv.string,
@@ -35,6 +33,7 @@ SENSOR_PLATFORM_SCHEMA = SENSOR_PLATFORM_SCHEMA.extend(
     }
 )
 
+SCAN_INTERVAL = timedelta(minutes=1)
 
 async def async_setup_entry(
     hass: HomeAssistant,
@@ -50,6 +49,11 @@ async def async_setup_platform(
     config: ConfigType,
     async_add_entities: AddEntitiesCallback,
 ) -> None:
+
+    # Extraire la valeur de l'intervalle de scan depuis la configuration
+    scan_interval_minutes = config.get(CONF_SCAN_INTERVAL, 1)
+    scan_interval = timedelta(minutes=scan_interval_minutes)
+
 
     client = ComapClient(username=config[CONF_USERNAME], password=config[CONF_PASSWORD])
 
@@ -71,16 +75,16 @@ async def async_setup_platform(
             batt_list.append(object)
     
     batt_sensors = [
-        ComapBatterySensor(client, batt_sensor, obj_zone_names, obj_zone_ids)
+        ComapBatterySensor(client, batt_sensor, obj_zone_names, obj_zone_ids, scan_interval)
         for batt_sensor in batt_list
     ]
 
     device_sensors = [
-        ComapDeviceSensor(client, device_sensor, obj_zone_names, obj_zone_ids)
+        ComapDeviceSensor(client, device_sensor, obj_zone_names, obj_zone_ids, scan_interval)
         for device_sensor in connected_objects
     ]
 
-    housing_sensors = [ComapHousingSensor(client)]
+    housing_sensors = [ComapHousingSensor(client, scan_interval)]
 
     sensors = housing_sensors + device_sensors + batt_sensors
 
@@ -101,14 +105,20 @@ async def async_setup_platform(
 
 
 class ComapHousingSensor(Entity):
-    def __init__(self, client):
+    def __init__(self, client, scan_interval):
         super().__init__()
+        self._scan_interval = scan_interval
         self.client = client
         self.housing = client.housing
         self._name = client.get_housings()[0].get("name")
         self._state = None
         self._available = True
         self.attrs: dict[str, Any] = {}
+
+    @property
+    def scan_interval(self) -> timedelta:
+        """Retourne l'intervalle de scan défini."""
+        return self._scan_interval
 
     @property
     def name(self) -> str:
@@ -178,9 +188,10 @@ class ComapHousingSensor(Entity):
                 return schedule["title"]           
 
 class ComapBatterySensor(Entity):
-    def __init__(self, client, batt_sensor, obj_zone_names, obj_zone_ids):
+    def __init__(self, client, batt_sensor, obj_zone_names, obj_zone_ids, scan_interval):
         super().__init__()
         """Initialize the battery sensor."""
+        self._scan_interval = scan_interval
         self.client = client
         self._state = batt_sensor.get("voltage_percent")
         self.housing = client.housing
@@ -196,6 +207,10 @@ class ComapBatterySensor(Entity):
         if (self.sn in obj_zone_ids):
             self.zone_id = obj_zone_ids.get(self.sn)
 
+    @property
+    def scan_interval(self) -> timedelta:
+        """Retourne l'intervalle de scan défini."""
+        return self._scan_interval
 
     @property
     def name(self):
@@ -243,8 +258,9 @@ class ComapBatterySensor(Entity):
         self._state = batt
 
 class ComapDeviceSensor(Entity):
-    def __init__(self, client, device_sensor, obj_zone_names, obj_zone_ids):
+    def __init__(self, client, device_sensor, obj_zone_names, obj_zone_ids, scan_interval):
         super().__init__()
+        self._scan_interval = scan_interval
         self.client = client
         self.housing = client.housing
         self._state = None
@@ -262,7 +278,11 @@ class ComapDeviceSensor(Entity):
         if (self.sn in obj_zone_ids):
             self.zone_id = obj_zone_ids.get(self.sn)
 
-
+    @property
+    def scan_interval(self) -> timedelta:
+        """Retourne l'intervalle de scan défini."""
+        return self._scan_interval
+    
     @property
     def name(self) -> str:
         """Return the name of the entity."""

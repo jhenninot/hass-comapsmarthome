@@ -1,7 +1,6 @@
 {
   "codeowners": ["@rbiremon","@jhenninot"],
   "config_flow": true,
-  "options_flow": true,
   "dependencies": [],
   "documentation": "https://github.com/jhenninot/hass-comapsmarthome/",
   "domain": "comapsmarthome",

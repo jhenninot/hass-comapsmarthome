@@ -12,6 +12,7 @@ from homeassistant.helpers.typing import ConfigType
 from homeassistant.const import (
     CONF_USERNAME,
     CONF_PASSWORD,
+    CONF_SCAN_INTERVAL
 )
 
 from . import ComapCoordinator, ComapClient
@@ -25,13 +26,12 @@ SCAN_INTERVAL = timedelta(minutes=1)
 async def async_setup_entry(
     hass: HomeAssistant,
     config_entry: ConfigEntry,
-    config_type: ConfigType,
     async_add_entities,
 ) -> None:
     
     # Extraire la valeur de l'intervalle de scan depuis la configuration
-    scan_interval_minutes = config_type.get(CONF_SCAN_INTERVAL, 1)
-    scan_interval = timedelta(minutes=scan_interval_minutes)
+    #scan_interval_minutes = config_type.get(CONF_SCAN_INTERVAL, 1)
+    #scan_interval = timedelta(minutes=scan_interval_minutes)
     
     config = hass.data[DOMAIN][config_entry.entry_id]
     client = ComapClient(username=config[CONF_USERNAME], password=config[CONF_PASSWORD])
@@ -40,11 +40,11 @@ async def async_setup_entry(
     zones = req.get("zones")
 
     zones_selects = [
-        ZoneModeSelect(client, scan_interval, zone)
+        ZoneModeSelect(client, zone)
         for zone in zones
     ]
 
-    central_select = CentralModeSelect(client, scan_interval, related_entities=zones_selects)
+    central_select = CentralModeSelect(client, related_entities=zones_selects)
 
     selects = [central_select] + zones_selects
 
@@ -54,9 +54,9 @@ async def async_setup_entry(
 class CentralModeSelect(SelectEntity):
     """Representation of the central mode choice"""
 
-    def __init__(self, client, scan_interval, related_entities):
+    def __init__(self, client, related_entities):
         super().__init__()
-        self._scan_interval = scan_interval
+        self._scan_interval = 1
         self.client = client
         self.housing = client.housing
         self._name = "Planning Comap"
@@ -142,9 +142,9 @@ class CentralModeSelect(SelectEntity):
 class ZoneModeSelect(SelectEntity):
     """Representation of the central mode choice"""
 
-    def __init__(self, client, scan_interval, zone):
+    def __init__(self, client, zone):
         super().__init__()
-        self._scan_interval = scan_interval
+        self._scan_interval = 1
         self.client = client
         self.housing = client.housing
         self._name = "Planning Comap zone " + zone.get("title")

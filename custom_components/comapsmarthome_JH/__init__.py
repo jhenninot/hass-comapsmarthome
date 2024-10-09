@@ -21,6 +21,10 @@ async def async_setup_entry(
     hass.data.setdefault(DOMAIN, {})
     hass.data[DOMAIN][entry.entry_id] = entry.data
 
+    # Ajouter une vérification des options pour utiliser la valeur définie
+    options = entry.options
+    refresh_interval = options.get("refresh_interval", 60)  # Par défaut 60s
+
     # Forward the setup to the sensor platform.
     await hass.config_entries.async_forward_entry_setups(
         entry, ["climate", "sensor", "binary_sensor", "switch", "select"]

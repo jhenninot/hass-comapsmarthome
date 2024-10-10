@@ -6,7 +6,7 @@ import voluptuous as vol
 
 from homeassistant.components.sensor import PLATFORM_SCHEMA as SENSOR_PLATFORM_SCHEMA
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import CONF_PASSWORD, CONF_SCAN_INTERVAL, CONF_USERNAME, PERCENTAGE
+from homeassistant.const import CONF_PASSWORD, CONF_USERNAME, PERCENTAGE
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers.device_registry import DeviceInfo
@@ -21,6 +21,7 @@ from .const import (
     DOMAIN,
     SERVICE_SET_AWAY,
     SERVICE_SET_HOME,
+    COMAP_SENSOR_SCAN_INTERVAL
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -29,7 +30,7 @@ SENSOR_PLATFORM_SCHEMA = SENSOR_PLATFORM_SCHEMA.extend(
     {
         vol.Required(CONF_USERNAME): cv.string,
         vol.Required(CONF_PASSWORD): cv.string,
-        vol.Optional(CONF_SCAN_INTERVAL): cv.Number,
+        vol.Optional(COMAP_SENSOR_SCAN_INTERVAL): cv.Number,
     }
 )
 
@@ -51,7 +52,7 @@ async def async_setup_platform(
 ) -> None:
 
     # Extraire la valeur de l'intervalle de scan depuis la configuration
-    scan_interval_minutes = config.get(CONF_SCAN_INTERVAL, 1)
+    scan_interval_minutes = config.get(COMAP_SENSOR_SCAN_INTERVAL, 1)
     scan_interval = timedelta(minutes=scan_interval_minutes)
 
 

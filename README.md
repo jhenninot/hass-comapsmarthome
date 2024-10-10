@@ -26,6 +26,7 @@ Features :
 * Pilot wire zone: set preset mode
 * Set home away, home back for housing
 * Set schedule per zone or for all zones at once
+* polling interval is customizable for sensors and for selects (schedules)
 
 Does not support:
 
@@ -35,7 +36,7 @@ Does not support:
 
 ## Current limitations
 
-* Polling interval is not customizable
+* Polling interval is not customizable for climates and switches
 * Any manual instruction is set for 2 hours by default
 * Your applied schedule will cancel any temporary orders - this is Comap behavior
 

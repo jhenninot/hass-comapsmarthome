@@ -7,12 +7,12 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.components.select import SelectEntity
 from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.typing import ConfigType
+from .const import COMAP_SENSOR_SCAN_INTERVAL
 
 
 from homeassistant.const import (
     CONF_USERNAME,
     CONF_PASSWORD,
-    CONF_SCAN_INTERVAL
 )
 
 from . import ComapCoordinator, ComapClient

@@ -8,3 +8,4 @@ SERVICE_SET_SCHEDULE = "set_schedule"
 ATTR_SCHEDULE_NAME = "schedule_name"
 
 COMAP_SENSOR_SCAN_INTERVAL = "sensor_scan_interval"
+COMAP_SCHEDULE_SCAN_INTERVAL = "schedule_scan_interval"

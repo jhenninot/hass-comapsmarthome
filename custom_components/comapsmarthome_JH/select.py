@@ -7,7 +7,7 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.components.select import SelectEntity
 from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.typing import ConfigType
-from .const import COMAP_SENSOR_SCAN_INTERVAL
+from .const import COMAP_SCHEDULE_SCAN_INTERVAL
 
 
 from homeassistant.const import (
@@ -29,22 +29,24 @@ async def async_setup_entry(
     async_add_entities,
 ) -> None:
     
-    # Extraire la valeur de l'intervalle de scan depuis la configuration
-    #scan_interval_minutes = config_type.get(CONF_SCAN_INTERVAL, 1)
-    #scan_interval = timedelta(minutes=scan_interval_minutes)
+    
     
     config = hass.data[DOMAIN][config_entry.entry_id]
     client = ComapClient(username=config[CONF_USERNAME], password=config[CONF_PASSWORD])
+
+    # Extraire la valeur de l'intervalle de scan depuis la configuration
+    scan_interval_minutes = config.get(COMAP_SCHEDULE_SCAN_INTERVAL, 1)
+    scan_interval = timedelta(minutes=scan_interval_minutes)
     
     req = await client.get_zones()
     zones = req.get("zones")
 
     zones_selects = [
-        ZoneModeSelect(client, zone)
+        ZoneModeSelect(client, scan_interval, zone)
         for zone in zones
     ]
 
-    central_select = CentralModeSelect(client, related_entities=zones_selects)
+    central_select = CentralModeSelect(client, scan_interval, related_entities=zones_selects)
 
     selects = [central_select] + zones_selects
 
@@ -54,9 +56,9 @@ async def async_setup_entry(
 class CentralModeSelect(SelectEntity):
     """Representation of the central mode choice"""
 
-    def __init__(self, client, related_entities):
+    def __init__(self, client, scan_interval, related_entities):
         super().__init__()
-        self._scan_interval = 1
+        self._scan_interval = scan_interval
         self.client = client
         self.housing = client.housing
         self._name = "Planning Comap"
@@ -142,9 +144,9 @@ class CentralModeSelect(SelectEntity):
 class ZoneModeSelect(SelectEntity):
     """Representation of the central mode choice"""
 
-    def __init__(self, client, zone):
+    def __init__(self, client, scan_interval, zone):
         super().__init__()
-        self._scan_interval = 1
+        self._scan_interval = scan_interval
         self.client = client
         self.housing = client.housing
         self._name = "Planning Comap zone " + zone.get("title")

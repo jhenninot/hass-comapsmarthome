@@ -6,7 +6,25 @@
                 "title": "Register your ComapSmartHome account.",
                 "data": {
                     "username": "Username",
-                    "password": "Password"
+                    "password": "Password",
+                    "sensor_scan_interval": "Sensors scan interval (minutes)",
+                    "schedule_scan_interval": "Schedules scan interval (minutes)"
+                }
+            }
+        },
+        "error": {
+            "cannot_connect": "Impossible to establish connection, check credentials."
+        }
+    },
+    
+    "options": {
+        "flow_title": "{name}",
+        "step": {
+            "user": {
+                "title": "Options.",
+                "data": {
+                    "sensor_scan_interval": "Sensors scan interval (minutes)",
+                    "schedule_scan_interval": "Schedules scan interval (minutes)"
                 }
             }
         },

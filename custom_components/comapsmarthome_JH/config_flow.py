@@ -6,15 +6,15 @@ import voluptuous as vol
 
 from homeassistant import config_entries
 from homeassistant.core import callback
-from homeassistant.const import CONF_PASSWORD, CONF_USERNAME, CONF_SCAN_INTERVAL
+from homeassistant.const import CONF_PASSWORD, CONF_USERNAME
 
-from .const import DOMAIN
+from .const import DOMAIN, COMAP_SENSOR_SCAN_INTERVAL
 
 
 DATA_SCHEMA = vol.Schema({
     vol.Required(CONF_USERNAME): str,
     vol.Required(CONF_PASSWORD): str,
-    vol.Required(CONF_SCAN_INTERVAL, default=1): int
+    vol.Required(COMAP_SENSOR_SCAN_INTERVAL, default=1): int
 })
 
 _LOGGER = logging.getLogger(__name__)
@@ -67,10 +67,10 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
             return self.async_create_entry(title="Délai de rafraichissement des infos", data=user_input)
 
         # Obtenir la valeur actuelle ou utiliser la valeur par défaut
-        current_interval_value = self.config_entry.options.get(CONF_SCAN_INTERVAL, 1)
+        current_sensor_interval_value = self.config_entry.options.get(COMAP_SENSOR_SCAN_INTERVAL, 1)
 
         data_schema = vol.Schema({
-            vol.Required(CONF_SCAN_INTERVAL, default=current_interval_value): vol.Range(min=1, max=30, msg="Value must be between 1 and 30"),
+            vol.Required(COMAP_SENSOR_SCAN_INTERVAL, default=current_sensor_interval_value): vol.Range(min=1, max=30, msg="Value must be between 1 and 30"),
         })
 
         return self.async_show_form(step_id="user", data_schema=data_schema)

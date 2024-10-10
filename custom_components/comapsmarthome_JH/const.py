@@ -6,3 +6,5 @@ SERVICE_SET_AWAY = "set_away"
 SERVICE_SET_HOME = "set_home"
 SERVICE_SET_SCHEDULE = "set_schedule"
 ATTR_SCHEDULE_NAME = "schedule_name"
+
+COMAP_SENSOR_SCAN_INTERVAL = "sensor_scan_interval"

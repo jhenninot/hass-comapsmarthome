@@ -21,6 +21,7 @@ from .const import (
     DOMAIN,
 )
 
+_LOGGER = logging.getLogger(__name__)
 SCAN_INTERVAL = timedelta(minutes=1)
 
 async def async_setup_entry(
@@ -48,7 +49,9 @@ async def async_setup_entry(
 
     central_select = CentralModeSelect(client, scan_interval, related_entities=zones_selects)
 
-    selects = [central_select] + zones_selects
+    central_program = ProgramSelect(client,scan_interval)
+
+    selects = [central_select] + zones_selects + [central_program]
 
     async_add_entities(selects, update_before_add=True)
 
@@ -227,4 +230,86 @@ class ZoneModeSelect(SelectEntity):
                 return schedule["title"]  
 
     async def setProgram(self,schedule_id, zone_id):
-        await self.client.set_schedule(zone_id,schedule_id)          
+        await self.client.set_schedule(zone_id,schedule_id)
+
+class ProgramSelect(SelectEntity):
+
+    def __init__(self, client, scan_interval):
+        super().__init__()
+        self._scan_interval = scan_interval
+        self.client = client
+        self.housing = client.housing
+        self._name = "Programme Comap"
+        self.device_name = client.get_housings()[0].get("name")
+        self._unique_id = "central_program_" + client.housing
+        self._attr_options = []
+        self._attr_current_option = None
+        self.modes = {}
+
+    @property
+    def scan_interval(self) -> timedelta:
+        """Retourne l'intervalle de scan défini."""
+        return self._scan_interval
+    
+    @property
+    def icon(self) -> str:
+        return "mdi:form-select"
+
+    @property
+    def name(self) -> str:
+        """Return the name of the entity."""
+        return self._name
+
+    @property
+    def unique_id(self) -> str:
+        """Return the unique ID of the sensor."""
+        return self._unique_id
+
+    @property
+    def device_info(self) -> DeviceInfo:
+        """Return the device info."""
+        return DeviceInfo(
+            identifiers={
+                # Serial numbers are unique identifiers within a specific domain
+                (DOMAIN, self.unique_id)
+            },
+            name=self.device_name,
+            manufacturer="comap",
+        )
+
+    async def async_update(self):       
+        programs = await self.get_programs()
+        self._attr_options = self.list_programs(programs)
+        self.modes = self.parse_programs(programs)
+        self._attr_current_option = self.get_active_program_name(programs)
+
+    async def async_select_option(self, option: str) -> None:
+        program_id = self.modes.get(option)
+        await self.setProgram(program_id)
+        self._attr_current_option = option
+    
+    async def get_programs(self):
+        req = await self.client.get_programs()
+        return req.get("programs")
+
+    def list_programs(self, prglist) -> list:
+        programs = []
+        for program in prglist:
+            programs.append(program["title"])
+        return programs
+
+    def parse_programs(self, prglist) -> dict[str, str]:
+        programs = {}
+        for schedule in prglist:
+            programs.update({schedule["title"]: schedule["id"]})
+        return programs
+
+    def get_active_program_name(self,prglist) -> str:
+        active_program = None
+        for program in prglist:
+            if program["is_activated"]:
+                    active_program = program["title"] 
+        return active_program   
+
+    async def setProgram(self,program_id):
+        await self.client.set_program(program_id)

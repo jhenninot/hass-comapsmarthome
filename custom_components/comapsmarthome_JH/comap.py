@@ -186,11 +186,28 @@ class ComapClient(object):
         except:
             return None
 
+    async def set_holiday(self, housing=None):
+        if housing is None:
+            housing = self.housing
+        return await self.async_post(
+            self._BASEURL
+            + "thermal/housings/"
+            + housing
+            + "/thermal-control/absence"
+        )
 
-        
-
-
-    async def leave_home(self, housing=None):
+    async def delete_holiday(self, housing=None):
+        """THis is used to cancel a leave home signal"""
+        if housing is None:
+            housing = self.housing
+        return await self.async_delete(
+            self._BASEURL
+            + "thermal/housings/"
+            + housing
+            + "/thermal-control/absence"
+        )
+    
+    async def set_absence(self, housing=None):
         if housing is None:
             housing = self.housing
         return await self.async_post(
@@ -200,8 +217,7 @@ class ComapClient(object):
             + "/thermal-control/leave-home"
         )
 
-    async def return_home(self, housing=None):
-        """THis is used to cancel a leave home signal"""
+    async def delete_absence(self, housing=None):
         if housing is None:
             housing = self.housing
         return await self.async_delete(
@@ -257,6 +273,20 @@ class ComapClient(object):
             _LOGGER.error("Could not find active program for Comap housing")
 
         return active_program
+
+    async def set_program(self, program, housing=None):
+        if housing is None:
+            housing = self.housing
+        if program is None:
+            return
+        return await self.async_post(
+            self._BASEURL
+            + "thermal/housings/"
+            + housing
+            + "/programs/"
+            + program
+            + "/activate"
+        )
 
 
     async def get_active_schedules(self, housing=None):

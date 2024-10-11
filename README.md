@@ -1,23 +1,26 @@
 # hass-comapsmarthome
 A Home Assistant custom component for comap smart home thermostats (qivivo)
 
-[![Open your Home Assistant instance and open a repository inside the Home Assistant Community Store.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=jhenninot&repository=hass-comapsmarthome)
-
 ## Supported features
 This is designed for Qivivo Fil Pilote thermostats.
 
 It will set up :
 * 1 device for the main housing  with the following entities :
-    * 1 sensor  entity dedicated to main information about the housing
-    * 1 sensor  entity dedicated to the comap network bridge
-    * a select  entity allowing to change the schedule for all zonez at once
+    * 1 sensor entity providing informations about the house
+    * 1 sensor entity providing informations about the comap network bridge
+    * a select entity allowing to change the schedule for all zone at once
+    * a select entity to choose active program
+    * a switch do turn on/of the heating system at a home level
+    * a switch to manage absence mode
+    * a switch to manage holiday mode
 
 * 1 device per zone with the following sensors :
-    * a select entity allowing to change the schedule fot the zone
-    * a sensor  entity deticated to the heating module
+    * a select entity allowing to change the schedule at a zone level
+    * a sensor entity providing information about the heating module
     * a climate entity
     * a presence entity (if a thermostat is attached to the zone)
     * a battery sensor entity (if a thermostat is attached to the zone)
+    * a thermostat sensor providing more information about the zone thermostat
 
 Features :
 
@@ -31,12 +34,11 @@ Features :
 Does not support:
 
 * Mulitple housings
-* Programs (a program is a set of schedules to apply to your different zones)
 * Other type of Comap thermal devices than pilot wire
 
 ## Current limitations
 
-* Polling interval is not customizable for climates and switches
+* Polling interval is not customizable for climate entities (30 sec for all climate entities)
 * Any manual instruction is set for 2 hours by default
 * Your applied schedule will cancel any temporary orders - this is Comap behavior
 
@@ -46,3 +48,9 @@ Does not support:
 You can deploy the component to custom_components directory in you home assistant config directory, or use HACS by pointing to this repository.
 
 Setup through the Home Assistant Integration menu - you will need your Comap username and password.
+During setup, you'll be able to choose polling interval for sensors and selects
+
+## Unsupported features
+
+* This integration will never make coffe or interact with your washing machine ;-)
+

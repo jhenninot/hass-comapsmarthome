@@ -55,8 +55,10 @@ async def async_setup_platform(
     scan_interval_minutes = config.get(COMAP_SENSOR_SCAN_INTERVAL, 1)
     scan_interval = timedelta(minutes=scan_interval_minutes)
 
-
     client = ComapClient(username=config[CONF_USERNAME], password=config[CONF_PASSWORD])
+
+    global HOUSING_DATA
+    HOUSING_DATA = hass.data[DOMAIN]["housing"]
 
     connected_objects = await client.get_housing_connected_objects()
 
@@ -110,11 +112,12 @@ class ComapHousingSensor(Entity):
         super().__init__()
         self._scan_interval = scan_interval
         self.client = client
-        self.housing = client.housing
-        self._name = client.get_housings()[0].get("name")
+        self.housing = HOUSING_DATA.get("id")
+        self._name = "Infos " + HOUSING_DATA.get("name")
         self._state = None
         self._available = True
         self.attrs: dict[str, Any] = {}
+        #self._attr_disabled_by = 'integration'
 
     @property
     def scan_interval(self) -> timedelta:
@@ -129,7 +132,7 @@ class ComapHousingSensor(Entity):
     @property
     def unique_id(self) -> str:
         """Return the unique ID of the sensor."""
-        return self.client.housing + "_sensor"
+        return self.housing + "_sensor"
 
     @property
     def available(self) -> bool:
@@ -150,11 +153,11 @@ class ComapHousingSensor(Entity):
         return DeviceInfo(
             identifiers={
                 # Serial numbers are unique identifiers within a specific domain
-                (DOMAIN, self.client.housing)
+                (DOMAIN, self.housing)
             },
             name=self.name,
             manufacturer="comap",
-            serial_number = self.client.housing
+            serial_number = self.housing
         )
 
     async def async_update(self):
@@ -201,7 +204,7 @@ class ComapBatterySensor(Entity):
         self._scan_interval = scan_interval
         self.client = client
         self._state = batt_sensor.get("voltage_percent")
-        self.housing = client.housing
+        self.housing = HOUSING_DATA.get("id")
         self._unique_id = None
         self.sn = batt_sensor.get("serial_number")
         self.model = batt_sensor.get("model")
@@ -209,7 +212,7 @@ class ComapBatterySensor(Entity):
         self.zone_name = ""
         if (self.sn in obj_zone_names):
             self.zone_name = obj_zone_names.get(self.sn)
-        self._name = "Batterie " + self.model + " " + self.zone_name
+        self._name = "Batterie " + self.model + " " + self.zone_name + " " + self.client.get_housings()[0].get("name")
         self.zone_id = self.housing
         if (self.sn in obj_zone_ids):
             self.zone_id = obj_zone_ids.get(self.sn)
@@ -233,7 +236,7 @@ class ComapBatterySensor(Entity):
 
     @property
     def unique_id(self) -> str:
-        return self.zone_id + "_battery_" + self.sn
+        return self.housing + "_" + self.zone_id + "_battery_" + self.model + "_"+ self.sn
     
     @property
     def device_info(self) -> DeviceInfo:
@@ -243,7 +246,7 @@ class ComapBatterySensor(Entity):
                 # Serial numbers are unique identifiers within a specific domain
                 (DOMAIN, self.zone_id)
             },
-            name = self.zone_name,
+            name = self.zone_name + " " + HOUSING_DATA.get("name"),
             manufacturer = "comap",
             serial_number = self.zone_id
         )
@@ -269,9 +272,10 @@ class ComapDeviceSensor(Entity):
         super().__init__()
         self._scan_interval = scan_interval
         self.client = client
-        self.housing = client.housing
+        self.housing = HOUSING_DATA.get("id")
         self._state = None
         self._available = True
+        #self._attr_disabled_by = 'integration'
         self._unique_id = None
         self.sn = device_sensor.get("serial_number")
         self.model = device_sensor.get("model")
@@ -310,7 +314,7 @@ class ComapDeviceSensor(Entity):
     @property
     def unique_id(self) -> str:
         """Return the unique ID of the sensor."""
-        return self.zone_id + "_" + self.model + "_" + self.sn
+        return self.housing + "_" + self.zone_id + "_" + self.model + "_"+ self.sn
 
     @property
     def available(self) -> bool:
@@ -333,7 +337,7 @@ class ComapDeviceSensor(Entity):
                 # Serial numbers are unique identifiers within a specific domain
                 (DOMAIN, self.zone_id)
             },
-            name = self.zone_name,
+            name = self.zone_name + " " + self.client.get_housings()[0].get("name"),
             manufacturer = "comap",
             serial_number = self.zone_id
         )

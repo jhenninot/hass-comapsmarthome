@@ -11,15 +11,28 @@ from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 from .comap import ComapClientException, ComapClient
 from .const import DOMAIN
 
+from homeassistant.const import (
+    CONF_USERNAME,
+    CONF_PASSWORD,
+)
+
 _LOGGER = logging.getLogger(__name__)
 
 
 async def async_setup_entry(
     hass: core.HomeAssistant, entry: config_entries.ConfigEntry
 ) -> bool:
+    
+    
     """Set up platform from a ConfigEntry."""
     hass.data.setdefault(DOMAIN, {})
     hass.data[DOMAIN][entry.entry_id] = entry.data
+
+
+    config = hass.data[DOMAIN][entry.entry_id]
+    client = ComapClient(username=config[CONF_USERNAME], password=config[CONF_PASSWORD])
+    housing = await client.async_gethousing_data()
+    hass.data[DOMAIN]["housing"] = housing
 
     # Forward the setup to the sensor platform.
     await hass.config_entries.async_forward_entry_setups(

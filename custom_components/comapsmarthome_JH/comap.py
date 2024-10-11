@@ -141,6 +141,13 @@ class ComapClient(object):
 
     def get_housings(self):
         return self.get_request(self._BASEURL + "park/housings")
+    
+    async def async_get_housings(self):
+        return await self.async_get(self._BASEURL + "park/housings")
+    
+    async def async_gethousing_data(self):
+        housings = await self.async_get_housings()
+        return housings[0]
 
     async def get_zones(self, housing=None):
         if housing is None:

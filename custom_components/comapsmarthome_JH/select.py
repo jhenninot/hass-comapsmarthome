@@ -35,6 +35,9 @@ async def async_setup_entry(
     config = hass.data[DOMAIN][config_entry.entry_id]
     client = ComapClient(username=config[CONF_USERNAME], password=config[CONF_PASSWORD])
 
+    global HOUSING_DATA
+    HOUSING_DATA = hass.data[DOMAIN]["housing"]
+
     # Extraire la valeur de l'intervalle de scan depuis la configuration
     scan_interval_minutes = config.get(COMAP_SCHEDULE_SCAN_INTERVAL, 1)
     scan_interval = timedelta(minutes=scan_interval_minutes)
@@ -63,14 +66,16 @@ class CentralModeSelect(SelectEntity):
         super().__init__()
         self._scan_interval = scan_interval
         self.client = client
-        self.housing = client.housing
-        self._name = "Planning Comap"
-        self.device_name = client.get_housings()[0].get("name")
+        self.housing = HOUSING_DATA.get("id")
+        self._name = "Planning global " + HOUSING_DATA.get("name")
+        self.device_name = HOUSING_DATA.get("name")
         self._attr_unique_id = "central_mode"
         self._attr_options = []
         self._attr_current_option = None
         self.modes = {}
+        self._available = True
         self.related_entities = related_entities or []
+        
 
     @property
     def scan_interval(self) -> timedelta:
@@ -89,7 +94,12 @@ class CentralModeSelect(SelectEntity):
     @property
     def unique_id(self) -> str:
         """Return the unique ID of the sensor."""
-        return self.client.housing
+        return self.housing + "_schedule"
+    
+    @property
+    def available(self) -> bool:
+        """Return True if entity is available."""
+        return self._available
 
     @property
     def device_info(self) -> DeviceInfo:
@@ -97,9 +107,9 @@ class CentralModeSelect(SelectEntity):
         return DeviceInfo(
             identifiers={
                 # Serial numbers are unique identifiers within a specific domain
-                (DOMAIN, self.unique_id)
+                (DOMAIN, HOUSING_DATA.get("id"))
             },
-            name=self.device_name,
+            name=HOUSING_DATA.get("name"),
             manufacturer="comap",
         )
 
@@ -151,14 +161,15 @@ class ZoneModeSelect(SelectEntity):
         super().__init__()
         self._scan_interval = scan_interval
         self.client = client
-        self.housing = client.housing
-        self._name = "Planning Comap zone " + zone.get("title")
+        self.housing = HOUSING_DATA.get("id")
+        self._name = "Planning " + HOUSING_DATA.get("name") + " zone " + zone.get("title")
         self.zone_id = zone.get("id")
-        self._attr_unique_id = "zone_mode_" + zone.get("title")
+        self._attr_unique_id = "zone_mode_" + zone.get("id")
         self.zone_name = zone.get("title")
         self._attr_options = []
         self._attr_current_option = None
         self.modes = {}
+        self._available = True
     
     @property
     def scan_interval(self) -> timedelta:
@@ -177,7 +188,12 @@ class ZoneModeSelect(SelectEntity):
     @property
     def unique_id(self) -> str:
         """Return the unique ID of the sensor."""
-        return self.zone_id
+        return self.zone_id + "_schedule"
+    
+    @property
+    def available(self) -> bool:
+        """Return True if entity is available."""
+        return self._available
 
     @property
     def device_info(self) -> DeviceInfo:
@@ -185,7 +201,7 @@ class ZoneModeSelect(SelectEntity):
         return DeviceInfo(
             identifiers={
                 # Serial numbers are unique identifiers within a specific domain
-                (DOMAIN, self.unique_id)
+                (DOMAIN, self.zone_id)
             },
             name=self.zone_name,
             manufacturer="comap",
@@ -238,10 +254,10 @@ class ProgramSelect(SelectEntity):
         super().__init__()
         self._scan_interval = scan_interval
         self.client = client
-        self.housing = client.housing
-        self._name = "Programme Comap"
-        self.device_name = client.get_housings()[0].get("name")
-        self._unique_id = "central_program_" + client.housing
+        self.housing = HOUSING_DATA.get("id")
+        self._name = "Programme " + HOUSING_DATA.get("name")
+        self.device_name = HOUSING_DATA.get("name")
+        self._unique_id = self.housing + "program"
         self._attr_options = []
         self._attr_current_option = None
         self.modes = {}
@@ -271,9 +287,9 @@ class ProgramSelect(SelectEntity):
         return DeviceInfo(
             identifiers={
                 # Serial numbers are unique identifiers within a specific domain
-                (DOMAIN, self.unique_id)
+                (DOMAIN, HOUSING_DATA.get("id"))
             },
-            name=self.device_name,
+            name=HOUSING_DATA.get("name"),
             manufacturer="comap",
         )
 

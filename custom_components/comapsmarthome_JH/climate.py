@@ -60,6 +60,9 @@ async def async_setup_entry(
     config_entry: ConfigEntry,
     async_add_entities,
 ):
+    global HOUSING_DATA
+    HOUSING_DATA = hass.data[DOMAIN]["housing"]
+
     config = hass.data[DOMAIN][config_entry.entry_id]
     await async_setup_platform(hass, config, async_add_entities)
 
@@ -117,7 +120,8 @@ class ComapZoneThermostat(CoordinatorEntity[ComapCoordinator], ClimateEntity):
         super().__init__(coordinator)
         self.client = client
         self.zone_id = zone.get("id")
-        self._name = zone.get("title")
+        self.zone_name = HOUSING_DATA.get("name") + " zone " + zone.get("title")
+        self._name = "Thermostat " + HOUSING_DATA.get("name") + " zone " + zone.get("title")
         self._available = True
         self.set_point_type = zone.get("set_point_type")
         if (self.set_point_type == "custom_temperature") | (
@@ -150,7 +154,7 @@ class ComapZoneThermostat(CoordinatorEntity[ComapCoordinator], ClimateEntity):
                 # Serial numbers are unique identifiers within a specific domain
                 (DOMAIN, self.zone_id)
             },
-            name = self._name,
+            name = self.zone_name,
             manufacturer = "comap",
             serial_number = self.zone_id
         )
@@ -198,7 +202,7 @@ class ComapZoneThermostat(CoordinatorEntity[ComapCoordinator], ClimateEntity):
         try:
             return {key: self.attrs[key] for key in keys}
         except:
-            _LOGGER.warning("Failed to update extra attributes for zone " + self.name)
+            #_LOGGER.warning("Failed to update extra attributes for zone " + self.name)
             return None
 
     @callback

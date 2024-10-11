@@ -22,6 +22,10 @@ async def async_setup_entry(
 ) -> None:
     config = hass.data[DOMAIN][config_entry.entry_id]
     client = ComapClient(username=config[CONF_USERNAME], password=config[CONF_PASSWORD])
+
+    global HOUSING_DATA
+    HOUSING_DATA = hass.data[DOMAIN]["housing"]
+
     coordinator = ComapCoordinator(hass, client)
     await coordinator.async_config_entry_first_refresh()
     entities = list()
@@ -47,7 +51,7 @@ class ComapPresenceSensor(CoordinatorEntity[ComapCoordinator], BinarySensorEntit
         self.zone_id = zone_id
         self._attr_device_class = BinarySensorDeviceClass.OCCUPANCY
         self._name = self.coordinator.data[self.zone_id]["title"] + " presence"
-        self._id = zone_id + "_presence"
+        self._id = HOUSING_DATA.get("id") + "_" + zone_id + "_presence"
         self._is_on = None
         self.attrs = dict()
 

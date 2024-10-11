@@ -21,6 +21,9 @@ async def async_setup_entry(
 ) -> None:
     config = hass.data[DOMAIN][config_entry.entry_id]
     client = ComapClient(username=config[CONF_USERNAME], password=config[CONF_PASSWORD])
+    global HOUSING_DATA
+    HOUSING_DATA = hass.data[DOMAIN]["housing"]
+
     async_add_entities([ComapHousingOnOff(client),ComapHousingHoliday(client),ComapHousingAbsence(client)], update_before_add=True)
 
 
@@ -28,9 +31,8 @@ class ComapHousingOnOff(SwitchEntity):
     def __init__(self, client) -> None:
         super().__init__()
         self.client = client
-        self.housing = client.housing
-        housing = client.get_housings()[0]
-        self._name = housing.get("name")
+        self.housing = HOUSING_DATA.get("id")
+        self._name = HOUSING_DATA.get("name")
         self._is_on = None
         self._attr_device_class = SwitchDeviceClass.SWITCH
 
@@ -40,9 +42,9 @@ class ComapHousingOnOff(SwitchEntity):
         return DeviceInfo(
             identifiers={
                 # Serial numbers are unique identifiers within a specific domain
-                (DOMAIN, self.unique_id)
+                (DOMAIN, HOUSING_DATA.get("id"))
             },
-            name=self.name,
+            name=HOUSING_DATA.get("name"),
             manufacturer="comap",
         )
 
@@ -54,7 +56,7 @@ class ComapHousingOnOff(SwitchEntity):
     @property
     def unique_id(self) -> str:
         """Return the unique ID of the sensor."""
-        return self.client.housing
+        return self.housing + "_on_off"
 
     @property
     def is_on(self):
@@ -75,9 +77,8 @@ class ComapHousingHoliday(SwitchEntity):
     def __init__(self, client) -> None:
         super().__init__()
         self.client = client
-        self.housing = client.housing
-        housing = client.get_housings()[0]
-        self._name = "Holiday " + housing.get("name")
+        self.housing = HOUSING_DATA.get("id")
+        self._name = "Holiday " + HOUSING_DATA.get("name")
         self._is_on = None
         self._attr_device_class = SwitchDeviceClass.SWITCH
 
@@ -87,9 +88,9 @@ class ComapHousingHoliday(SwitchEntity):
         return DeviceInfo(
             identifiers={
                 # Serial numbers are unique identifiers within a specific domain
-                (DOMAIN, self.unique_id)
+                (DOMAIN, HOUSING_DATA.get("id"))
             },
-            name=self.name,
+            name=HOUSING_DATA.get("name"),
             manufacturer="comap",
         )
 
@@ -101,7 +102,7 @@ class ComapHousingHoliday(SwitchEntity):
     @property
     def unique_id(self) -> str:
         """Return the unique ID of the sensor."""
-        return self.client.housing + "_holiday"
+        return self.housing + "_holiday"
 
     @property
     def is_on(self):
@@ -126,9 +127,8 @@ class ComapHousingAbsence(SwitchEntity):
     def __init__(self, client) -> None:
         super().__init__()
         self.client = client
-        self.housing = client.housing
-        housing = client.get_housings()[0]
-        self._name = "Absence " + housing.get("name")
+        self.housing = HOUSING_DATA.get("id")
+        self._name = "Absence " + HOUSING_DATA.get("name")
         self._is_on = None
         self._attr_device_class = SwitchDeviceClass.SWITCH
 
@@ -138,9 +138,9 @@ class ComapHousingAbsence(SwitchEntity):
         return DeviceInfo(
             identifiers={
                 # Serial numbers are unique identifiers within a specific domain
-                (DOMAIN, self.unique_id)
+                (DOMAIN, HOUSING_DATA.get("id"))
             },
-            name=self.name,
+            name=HOUSING_DATA.get("name"),
             manufacturer="comap",
         )
 
@@ -152,7 +152,7 @@ class ComapHousingAbsence(SwitchEntity):
     @property
     def unique_id(self) -> str:
         """Return the unique ID of the sensor."""
-        return self.client.housing + "_absence"
+        return self.housing + "_absence"
 
     @property
     def is_on(self):

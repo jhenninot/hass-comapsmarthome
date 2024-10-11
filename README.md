@@ -54,3 +54,9 @@ During setup, you'll be able to choose polling interval for sensors and selects
 
 * This integration will never make coffe or interact with your washing machine ;-)
 
+## THANK YOU !
+
+Many thanks to :
+ * Romain Biremon for his initial work on comap smart home intergration : https://github.com/rbiremon/hass-comapsmarthome
+ * petit-pierre melec for his python api, from which i took many useful information : https://gitlab.com/melec
+

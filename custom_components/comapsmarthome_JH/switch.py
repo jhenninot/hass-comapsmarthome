@@ -93,6 +93,7 @@ class ComapHousingHoliday(SwitchEntity):
         self._name = "Holiday " + HOUSING_DATA.get("name")
         self._is_on = None
         self._attr_device_class = SwitchDeviceClass.SWITCH
+        self._extra_state_attributes = {}
 
     @property
     def device_info(self) -> DeviceInfo:
@@ -120,6 +121,10 @@ class ComapHousingHoliday(SwitchEntity):
     def is_on(self):
         """If the sensor is currently on or off."""
         return self._is_on
+    
+    @property
+    def extra_state_attributes(self):
+        return self._extra_state_attributes
 
     async def async_update(self):
         zones = await self.client.get_zones()
@@ -128,6 +133,7 @@ class ComapHousingHoliday(SwitchEntity):
             self._is_on = True
         else:
             self._is_on = False
+        self._extra_state_attributes = events.get("absence")
        
     async def async_turn_on(self, **kwargs: Any) -> None:
         return await self.client.set_holiday()
@@ -143,6 +149,7 @@ class ComapHousingAbsence(SwitchEntity):
         self._name = "Absence " + HOUSING_DATA.get("name")
         self._is_on = None
         self._attr_device_class = SwitchDeviceClass.SWITCH
+        self._extra_state_attributes = {}
 
     @property
     def device_info(self) -> DeviceInfo:
@@ -170,6 +177,10 @@ class ComapHousingAbsence(SwitchEntity):
     def is_on(self):
         """If the sensor is currently on or off."""
         return self._is_on
+    
+    @property
+    def extra_state_attributes(self):
+        return self._extra_state_attributes
 
     async def async_update(self):
         zones = await self.client.get_zones()
@@ -178,6 +189,7 @@ class ComapHousingAbsence(SwitchEntity):
             self._is_on = True
         else:
             self._is_on = False
+        self._extra_state_attributes = events.get("time_shift")
        
     async def async_turn_on(self, **kwargs: Any) -> None:
         return await self.client.set_absence()
@@ -197,6 +209,7 @@ class ComapZoneTemporarySwitch(SwitchEntity):
         self.zone_id = zone.get("id")
         self._extra_state_attributes = {}
         self._is_on = False
+        self._extra_state_attributes = {}
 
     @property
     def device_info(self) -> DeviceInfo:
@@ -221,6 +234,10 @@ class ComapZoneTemporarySwitch(SwitchEntity):
     def name(self) -> str:
         """Return the name of the entity."""
         return self._name
+    
+    @property
+    def extra_state_attributes(self):
+        return self._extra_state_attributes
 
     @property
     def unique_id(self) -> str:
@@ -238,6 +255,7 @@ class ComapZoneTemporarySwitch(SwitchEntity):
         return self._is_on
 
     async def async_update(self):
+        self._extra_state_attributes = {}
         req = await self.client.get_zones()
         zones = req.get("zones")
         events = {}
@@ -246,10 +264,14 @@ class ComapZoneTemporarySwitch(SwitchEntity):
                 events = zone.get("events")
         self._extra_state_attributes["temporary_instruction"] = events.get("temporary_instruction")
         if ('temporary_instruction' in events):
+            temporary_instruction = events.get("temporary_instruction")
             self._is_on = True
+            self._extra_state_attributes["end_at"] = temporary_instruction.get("end_at")
+            self._extra_state_attributes["instruction"] = temporary_instruction.get("set_point").get("instruction")
         else:
             self._is_on = False
-       
+            self._extra_state_attributes["end_at"] = None
+            self._extra_state_attributes["instruction"] = None
     async def async_turn_on(self, **kwargs: Any) -> None:
         return
     

@@ -103,7 +103,7 @@ async def async_setup_platform(
 
 
 class ComapZoneThermostat(CoordinatorEntity[ComapCoordinator], ClimateEntity):
-    _attr_target_temperature_step = "0.5"
+    _attr_target_temperature_step = 0.5
     _attr_temperature_unit = UnitOfTemperature.CELSIUS
     _attr_hvac_modes = [HVACMode.HEAT, HVACMode.OFF]
     _attr_preset_modes = [

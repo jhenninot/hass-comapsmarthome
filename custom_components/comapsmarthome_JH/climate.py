@@ -142,6 +142,7 @@ class ComapZoneThermostat(CoordinatorEntity[ComapCoordinator], ClimateEntity):
                 zone.get("set_point").get("instruction")
             )
             self._attr_supported_features = ClimateEntityFeature.PRESET_MODE
+        self._enable_turn_on_off_backwards_compatibility = False
         self._hvac_mode: HVACMode = self.map_hvac_mode(zone.get("heating_status"))
         self.attrs: dict[str, Any] = {}
         self.added = False

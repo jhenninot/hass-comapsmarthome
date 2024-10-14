@@ -87,6 +87,7 @@ async def async_setup_platform(
         for device_sensor in connected_objects
     ]
 
+
     housing_sensors = [ComapHousingSensor(client, scan_interval)]
 
     sensors = housing_sensors + device_sensors + batt_sensors
@@ -117,7 +118,6 @@ class ComapHousingSensor(Entity):
         self._state = None
         self._available = True
         self.attrs: dict[str, Any] = {}
-        #self._attr_disabled_by = 'integration'
 
     @property
     def scan_interval(self) -> timedelta:
@@ -161,41 +161,13 @@ class ComapHousingSensor(Entity):
         )
 
     async def async_update(self):
-        housings = await self.hass.async_add_executor_job(self.client.get_housings)
+        housings = await self.client.async_get_housings()
         self._name = housings[0].get("name")
         self.attrs[ATTR_ADDRESS] = housings[0].get("address")
-        r = await self.get_schedules()
-        self.attrs[ATTR_AVL_SCHDL] = self.parse_schedules(r)
-        prg_name = await self.get_active_schedule_name(r)
-        self.attrs["ZONES"] = await self.client.get_zones()
-        self.attrs["PROGRAMS"] = await self.get_programs()
-        self._state = prg_name
-
-    async def get_programs(self):
-        req = await self.client.get_programs()
-        return req.get("programs")
-
-
-    async def get_schedules(self):
-        r = await self.client.get_schedules()
-        return r
-
-    def parse_schedules(self, r) -> dict[str, str]:
-        schedules = {}
-        for schedule in r:
-            schedules.update({schedule["id"]: schedule["title"]})
-        return schedules
-        
-    async def get_active_program(self):
-        r = await self.client.get_active_program()
-        return r
-        
-    async def get_active_schedule_name(self,schedules):
-        r = await self.client.get_active_program()
-        id = r["zones"][0]["schedule_id"]
-        for schedule in schedules:
-            if (schedule["id"]) == id:
-                return schedule["title"]           
+        self.attrs["thermal-details"] = await self.client.get_zones()
+        thermal_details = await self.client.get_zones()
+        self._state = thermal_details.get("services_available")
+                   
 
 class ComapBatterySensor(Entity):
     def __init__(self, client, batt_sensor, obj_zone_names, obj_zone_ids, scan_interval):

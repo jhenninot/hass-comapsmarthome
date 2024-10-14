@@ -21,6 +21,7 @@ It will set up :
     * a presence entity (if a thermostat is attached to the zone)
     * a battery sensor entity (if a thermostat is attached to the zone)
     * a thermostat sensor providing more information about the zone thermostat
+    * a switch to display and turn-off temporary instructions
 
 Features :
 

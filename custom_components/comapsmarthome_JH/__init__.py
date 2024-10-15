@@ -67,10 +67,12 @@ class ComapCoordinator(DataUpdateCoordinator):
             # handled by the data update coordinator.
             async with timeout(10):
                 zones = await self.client.get_zones()
+                heating_system_state = zones.get("heating_system_state")
                 zones_details = dict()
                 for zone in zones["zones"]:
                     zone_detail = dict()
                     zone_detail.update(zone)
+                    zone_detail.update({"heating_system_state" : heating_system_state})
                     zones_details[zone["id"]] = zone_detail
                 zone_schedules = await self.client.get_active_schedules()
                 for zone in zone_schedules:

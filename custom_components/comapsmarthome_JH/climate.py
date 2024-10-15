@@ -8,6 +8,7 @@ from homeassistant.components.climate import (
     ClimateEntity,
     ClimateEntityFeature,
     HVACMode,
+    HVACAction,
 )
 from homeassistant.components.climate.const import (
     PRESET_AWAY,
@@ -33,7 +34,6 @@ from . import ComapCoordinator
 from .comap import ComapClient
 from .const import ATTR_SCHEDULE_NAME, DOMAIN, SERVICE_SET_SCHEDULE
 
-_LOGGER = logging.getLogger(__name__)
 
 SENSOR_PLATFORM_SCHEMA = SENSOR_PLATFORM_SCHEMA.extend(
     {
@@ -78,6 +78,9 @@ async def async_setup_platform(
     coordinator = ComapCoordinator(hass, client)
 
     housing_details = await client.get_zones()
+    heating_system_state = housing_details.get("heating_system_state")
+    for zone in housing_details.get("zones"):
+        zone.update({"heating_system_state": heating_system_state})
     zones = [
         ComapZoneThermostat(coordinator, client, zone)
         for zone in housing_details.get("zones")
@@ -105,7 +108,7 @@ async def async_setup_platform(
 class ComapZoneThermostat(CoordinatorEntity[ComapCoordinator], ClimateEntity):
     _attr_target_temperature_step = 0.5
     _attr_temperature_unit = UnitOfTemperature.CELSIUS
-    _attr_hvac_modes = [HVACMode.HEAT, HVACMode.OFF]
+    #_attr_hvac_modes = [HVACMode.HEAT, HVACMode.OFF, HVACMode.AUTO]
     _attr_preset_modes = [
         "off",
         PRESET_AWAY,
@@ -115,9 +118,12 @@ class ComapZoneThermostat(CoordinatorEntity[ComapCoordinator], ClimateEntity):
         PRESET_COMFORT,
     ]
     _attr_hvac_mode: HVACMode | None
+    _attr_hvac_action: HVACAction | None
 
     def __init__(self, coordinator: ComapCoordinator, client, zone):
         super().__init__(coordinator)
+        type = zone.get("set_point_type")
+        self._attr_hvac_modes = [HVACMode.OFF, HVACMode.AUTO, HVACMode.HEAT]
         self.client = client
         self.zone_id = zone.get("id")
         self.zone_name = HOUSING_DATA.get("name") + " zone " + zone.get("title")
@@ -143,7 +149,8 @@ class ComapZoneThermostat(CoordinatorEntity[ComapCoordinator], ClimateEntity):
             )
             self._attr_supported_features = ClimateEntityFeature.PRESET_MODE
         self._enable_turn_on_off_backwards_compatibility = False
-        self._hvac_mode: HVACMode = self.map_hvac_mode(zone.get("heating_status"))
+        self._hvac_mode: HVACMode = self.map_hvac_mode(zone)
+        self._hvac_action: HVACAction = self.map_hvac_action(zone)
         self.attrs: dict[str, Any] = {}
         self.added = False
 
@@ -186,6 +193,10 @@ class ComapZoneThermostat(CoordinatorEntity[ComapCoordinator], ClimateEntity):
     @property
     def hvac_mode(self) -> HVACMode:
         return self._hvac_mode
+    
+    @property
+    def hvac_action(self) -> HVACAction:
+        return self._hvac_action
 
     @property
     def preset_mode(self) -> str | None:
@@ -223,14 +234,21 @@ class ComapZoneThermostat(CoordinatorEntity[ComapCoordinator], ClimateEntity):
         )
         await self.async_update()
 
+    async def async_reset_temporary (self):
+        await self.client.remove_temporary_instruction(self.zone_id)
+        await self.async_update()
+
     async def async_set_hvac_mode(self, hvac_mode: str) -> bool:
         """Set new hvac mode."""
-        if (hvac_mode == HVACMode.OFF) & (self.zone_type == "pilot_wire"):
+
+        if (hvac_mode == HVACMode.AUTO):
+            await self.async_reset_temporary()
+        elif (hvac_mode == HVACMode.OFF) & (self.zone_type == "pilot_wire"):
             await self.async_set_preset_mode("off")
         elif (hvac_mode == HVACMode.HEAT) & (self.zone_type == "pilot_wire"):
             await self.async_set_preset_mode(PRESET_COMFORT)
         elif (hvac_mode == HVACMode.OFF) & (self.zone_type == "thermostat"):
-            await self.client.set_temporary_instruction(self.zone_id, 8)
+            await self.client.set_temporary_instruction(self.zone_id, 7)
             await self.async_update()
         elif (hvac_mode == HVACMode.HEAT) & (self.zone_type == "thermostat"):
             await self.client.set_temporary_instruction(self.zone_id, 20)
@@ -244,6 +262,9 @@ class ComapZoneThermostat(CoordinatorEntity[ComapCoordinator], ClimateEntity):
         zone_data = await self.hass.async_add_executor_job(
             self.client.get_zone, self.zone_id
         )
+        thermal_details = await self.client.get_zones()
+        heating_system_state = thermal_details.get("heating_system_state")
+        zone_data.update({"heating_system_state": heating_system_state})
         self.attributes_update(zone_data)
         if self.added == True:
             self.async_write_ha_state()
@@ -251,7 +272,9 @@ class ComapZoneThermostat(CoordinatorEntity[ComapCoordinator], ClimateEntity):
     def attributes_update(self, zone_data):
         self._current_temperature = zone_data.get("temperature")
         self._current_humidity = zone_data.get("humidity")
-        self._hvac_mode = self.map_hvac_mode(zone_data.get("heating_status"))
+        self._hvac_mode = self.map_hvac_mode(zone_data)
+        self._hvac_action = self.map_hvac_action(zone_data)
+        #self._hvac_action = HVACAction.IDLE
         self.set_point_type = zone_data.get("set_point_type")
         if self.zone_type == "thermostat":
             self.update_target_temperature(
@@ -262,12 +285,36 @@ class ComapZoneThermostat(CoordinatorEntity[ComapCoordinator], ClimateEntity):
                 zone_data.get("set_point").get("instruction")
             )
 
-    def map_hvac_mode(self, comap_mode):
-        hvac_mode_map = {"cooling": HVACMode.OFF, "heating": HVACMode.HEAT}
-        if comap_mode is None:
-            return HVACMode.OFF
+    def map_hvac_mode(self, zone_data):
+        heating_system_state = zone_data.get("heating_system_state")
+        type = zone_data.get("set_point_type")
+        #todo : détecter si on a un forçage sur la zone, et mettre à jour en conséquence...
+        #il va donc falloir aller rechercher si dans la zone on a une instruction emporaire, et ajuster le HVACMode sur 'HEAT'
+
+        temporary_instruction = zone_data.get("events").get("temporary_instruction")
+        if temporary_instruction is None:
+            thermostat_hvac_mode_map = {"off": HVACMode.OFF, "on": HVACMode.AUTO}
+            pilot_wire_hvac_mode_map = {"off": HVACMode.OFF, "on": HVACMode.AUTO}
+            if heating_system_state is None:
+                return HVACMode.AUTO
+            else:
+                if type == "pilot_wire":
+                    return pilot_wire_hvac_mode_map.get(heating_system_state)
+                else:
+                    return thermostat_hvac_mode_map.get(heating_system_state)
         else:
-            return hvac_mode_map.get(comap_mode)
+            return HVACMode.HEAT
+        
+    def map_hvac_action(self, zone_data):
+        heating_status = zone_data.get("heating_status")
+        heating_system_state = zone_data.get("heating_system_state")
+        if heating_system_state == "off":
+            return HVACAction.OFF
+        hvac_action_map = {"cooling": HVACAction.IDLE, "heating": HVACAction.HEATING}
+        if heating_status is None:
+            return HVACAction.IDLE
+        else:
+            return hvac_action_map.get(heating_status)
 
     def map_preset_mode(self, comap_mode):
         return PRESET_MODE_MAP.get(comap_mode)

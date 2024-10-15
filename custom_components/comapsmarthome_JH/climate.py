@@ -29,17 +29,22 @@ from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.typing import ConfigType
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
+from homeassistant.helpers.entity_registry import async_get as async_get_entity_registry
 
 from . import ComapCoordinator
 from .comap import ComapClient
-from .const import ATTR_SCHEDULE_NAME, DOMAIN, SERVICE_SET_SCHEDULE
+from .const import ATTR_SCHEDULE_NAME, DOMAIN, SERVICE_SET_SCHEDULE, ASSIST_COMPATIBILITY
 
+_LOGGER = logging.getLogger(__name__)
+
+_HASS = HomeAssistant
 
 SENSOR_PLATFORM_SCHEMA = SENSOR_PLATFORM_SCHEMA.extend(
     {
         vol.Required(CONF_USERNAME): cv.string,
         vol.Required(CONF_PASSWORD): cv.string,
         vol.Optional(CONF_SCAN_INTERVAL): cv.Number,
+        vol.Optional(ASSIST_COMPATIBILITY): cv.boolean
     }
 )
 
@@ -64,13 +69,15 @@ async def async_setup_entry(
     HOUSING_DATA = hass.data[DOMAIN]["housing"]
 
     config = hass.data[DOMAIN][config_entry.entry_id]
-    await async_setup_platform(hass, config, async_add_entities)
+    assist_compatibility = config_entry.data.get(ASSIST_COMPATIBILITY)
+    await async_setup_platform(hass, config, async_add_entities, assist_compatibility)
 
 
 async def async_setup_platform(
     hass: HomeAssistant,
     config: ConfigType,
     async_add_entities: AddEntitiesCallback,
+    assist_compatibility: bool
 ) -> None:
     """Set up the comapsmarthome platform."""
 
@@ -82,7 +89,7 @@ async def async_setup_platform(
     for zone in housing_details.get("zones"):
         zone.update({"heating_system_state": heating_system_state})
     zones = [
-        ComapZoneThermostat(coordinator, client, zone)
+        ComapZoneThermostat(coordinator, client, zone, assist_compatibility)
         for zone in housing_details.get("zones")
     ]
 
@@ -120,10 +127,13 @@ class ComapZoneThermostat(CoordinatorEntity[ComapCoordinator], ClimateEntity):
     _attr_hvac_mode: HVACMode | None
     _attr_hvac_action: HVACAction | None
 
-    def __init__(self, coordinator: ComapCoordinator, client, zone):
+    def __init__(self, coordinator: ComapCoordinator, client, zone, assist_compatibility):
+        self.hass = _HASS
         super().__init__(coordinator)
-        type = zone.get("set_point_type")
-        self._attr_hvac_modes = [HVACMode.OFF, HVACMode.AUTO, HVACMode.HEAT]
+        self._assist_compatibility = assist_compatibility
+        self._attr_hvac_modes = [HVACMode.OFF, HVACMode.HEAT]
+        if not assist_compatibility:
+            self._attr_hvac_modes.append(HVACMode.AUTO)
         self.client = client
         self.zone_id = zone.get("id")
         self.zone_name = HOUSING_DATA.get("name") + " zone " + zone.get("title")
@@ -224,6 +234,23 @@ class ComapZoneThermostat(CoordinatorEntity[ComapCoordinator], ClimateEntity):
         self.attributes_update(self.coordinator.data[self.zone_id])
         self.async_schedule_update_ha_state(force_refresh=True)
 
+    async def refresh_all_entities_for_device(self):
+        """Rafraîchit toutes les entités liées à un appareil spécifique."""
+        # Récupérer le registre des entités
+        entity_registry = async_get_entity_registry(self.hass)
+
+        # Trouver toutes les entités liées à l'identifiant de l'appareil
+        entities_to_refresh = [
+            entry.entity_id for entry in entity_registry.entities.values()
+            if entry.platform == DOMAIN
+        ]
+
+        # Rafraîchir chaque entité
+        for entity_id in entities_to_refresh:
+            await self.hass.services.async_call(
+               "homeassistant", "update_entity", {"entity_id": entity_id}
+            )
+
     async def async_added_to_hass(self) -> None:
         self.added = True
         return await super().async_added_to_hass()
@@ -253,10 +280,12 @@ class ComapZoneThermostat(CoordinatorEntity[ComapCoordinator], ClimateEntity):
         elif (hvac_mode == HVACMode.HEAT) & (self.zone_type == "thermostat"):
             await self.client.set_temporary_instruction(self.zone_id, 20)
             await self.async_update()
+        await self.refresh_all_entities_for_device()
 
     async def async_set_temperature(self, **kwargs) -> None:
         await self.client.set_temporary_instruction(self.zone_id, kwargs["temperature"])
         await self.async_update()
+        await self.refresh_all_entities_for_device()
 
     async def async_update(self):
         zone_data = await self.hass.async_add_executor_job(
@@ -293,15 +322,16 @@ class ComapZoneThermostat(CoordinatorEntity[ComapCoordinator], ClimateEntity):
 
         temporary_instruction = zone_data.get("events").get("temporary_instruction")
         if temporary_instruction is None:
-            thermostat_hvac_mode_map = {"off": HVACMode.OFF, "on": HVACMode.AUTO}
-            pilot_wire_hvac_mode_map = {"off": HVACMode.OFF, "on": HVACMode.AUTO}
-            if heating_system_state is None:
-                return HVACMode.AUTO
+            hvac_mode_map = {"off": HVACMode.OFF, "on": HVACMode.AUTO}
+            if self._assist_compatibility is True:
+               hvac_mode_map = {"off": HVACMode.OFF, "on": HVACMode.HEAT} 
+            if (heating_system_state is None):
+                return HVACMode.OFF
             else:
                 if type == "pilot_wire":
-                    return pilot_wire_hvac_mode_map.get(heating_system_state)
+                    return hvac_mode_map.get(heating_system_state)
                 else:
-                    return thermostat_hvac_mode_map.get(heating_system_state)
+                    return hvac_mode_map.get(heating_system_state)
         else:
             return HVACMode.HEAT
         
@@ -347,5 +377,5 @@ class ComapZoneThermostat(CoordinatorEntity[ComapCoordinator], ClimateEntity):
 
         # Update the data
         await self.coordinator.async_request_refresh()
-
+        
         return r

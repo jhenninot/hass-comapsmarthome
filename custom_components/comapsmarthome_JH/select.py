@@ -8,6 +8,7 @@ from homeassistant.components.select import SelectEntity
 from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.typing import ConfigType
 from .const import COMAP_SCHEDULE_SCAN_INTERVAL
+from homeassistant.helpers.entity_registry import async_get as async_get_entity_registry
 
 
 from homeassistant.const import (
@@ -22,6 +23,7 @@ from .const import (
 )
 
 _LOGGER = logging.getLogger(__name__)
+_HASS = HomeAssistant
 SCAN_INTERVAL = timedelta(minutes=1)
 
 async def async_setup_entry(
@@ -261,6 +263,7 @@ class ProgramSelect(SelectEntity):
         self._attr_options = []
         self._attr_current_option = None
         self.modes = {}
+        self.hass = _HASS
 
     @property
     def scan_interval(self) -> timedelta:
@@ -303,6 +306,7 @@ class ProgramSelect(SelectEntity):
         program_id = self.modes.get(option)
         await self.setProgram(program_id)
         self._attr_current_option = option
+        await self.refresh_all_entities_for_device()
     
     async def get_programs(self):
         req = await self.client.get_programs()
@@ -329,3 +333,20 @@ class ProgramSelect(SelectEntity):
 
     async def setProgram(self,program_id):
         await self.client.set_program(program_id)
+
+    async def refresh_all_entities_for_device(self):
+        """Rafraîchit toutes les entités liées à un appareil spécifique."""
+        # Récupérer le registre des entités
+        entity_registry = async_get_entity_registry(self.hass)
+
+        # Trouver toutes les entités liées à l'identifiant de l'appareil
+        entities_to_refresh = [
+            entry.entity_id for entry in entity_registry.entities.values()
+            if entry.platform == DOMAIN
+        ]
+
+        # Rafraîchir chaque entité
+        for entity_id in entities_to_refresh:
+            await self.hass.services.async_call(
+               "homeassistant", "update_entity", {"entity_id": entity_id}
+            )

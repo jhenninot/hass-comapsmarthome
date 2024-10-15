@@ -7,12 +7,13 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_PASSWORD, CONF_USERNAME
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.device_registry import DeviceInfo
+from homeassistant.helpers.entity_registry import async_get as async_get_entity_registry
 
 from . import ComapClient, ComapCoordinator
 from .const import DOMAIN
 
 SCAN_INTERVAL = timedelta(minutes=1)
-
+_HASS = HomeAssistant
 
 async def async_setup_entry(
     hass: HomeAssistant,
@@ -47,6 +48,7 @@ class ComapHousingOnOff(SwitchEntity):
         self._name = HOUSING_DATA.get("name")
         self._is_on = None
         self._attr_device_class = SwitchDeviceClass.SWITCH
+        self.hass = _HASS
 
     @property
     def device_info(self) -> DeviceInfo:
@@ -80,10 +82,31 @@ class ComapHousingOnOff(SwitchEntity):
         self._is_on = zones["heating_system_state"] == "on"
 
     async def async_turn_on(self, **kwargs: Any) -> None:
-        return await self.client.turn_on()
+        ret = await self.client.turn_on()
+        await self.refresh_all_entities_for_device()
+        return ret
 
     async def async_turn_off(self, **kwargs: Any) -> None:
-        return await self.client.turn_off()
+        ret =  await self.client.turn_off()
+        await self.refresh_all_entities_for_device()
+        return ret
+    
+    async def refresh_all_entities_for_device(self):
+        """Rafraîchit toutes les entités liées à un appareil spécifique."""
+        # Récupérer le registre des entités
+        entity_registry = async_get_entity_registry(self.hass)
+
+        # Trouver toutes les entités liées à l'identifiant de l'appareil
+        entities_to_refresh = [
+            entry.entity_id for entry in entity_registry.entities.values()
+            if entry.platform == DOMAIN
+        ]
+
+        # Rafraîchir chaque entité
+        for entity_id in entities_to_refresh:
+            await self.hass.services.async_call(
+               "homeassistant", "update_entity", {"entity_id": entity_id}
+            )
     
 class ComapHousingHoliday(SwitchEntity):
     def __init__(self, client) -> None:
@@ -94,6 +117,7 @@ class ComapHousingHoliday(SwitchEntity):
         self._is_on = None
         self._attr_device_class = SwitchDeviceClass.SWITCH
         self._extra_state_attributes = {}
+        self.hass = _HASS
 
     @property
     def device_info(self) -> DeviceInfo:
@@ -136,10 +160,31 @@ class ComapHousingHoliday(SwitchEntity):
         self._extra_state_attributes = events.get("absence")
        
     async def async_turn_on(self, **kwargs: Any) -> None:
-        return await self.client.set_holiday()
+        self._is_on = True
+        await self.client.set_holiday()
+        await self.refresh_all_entities_for_device()
 
     async def async_turn_off(self, **kwargs: Any) -> None:
-        return await self.client.delete_holiday()
+        self._is_on = False
+        await self.client.delete_holiday()
+        await self.refresh_all_entities_for_device()
+    
+    async def refresh_all_entities_for_device(self):
+        """Rafraîchit toutes les entités liées à un appareil spécifique."""
+        # Récupérer le registre des entités
+        entity_registry = async_get_entity_registry(self.hass)
+
+        # Trouver toutes les entités liées à l'identifiant de l'appareil
+        entities_to_refresh = [
+            entry.entity_id for entry in entity_registry.entities.values()
+            if entry.platform == DOMAIN
+        ]
+
+        # Rafraîchir chaque entité
+        for entity_id in entities_to_refresh:
+            await self.hass.services.async_call(
+               "homeassistant", "update_entity", {"entity_id": entity_id}
+            )
     
 class ComapHousingAbsence(SwitchEntity):
     def __init__(self, client) -> None:
@@ -150,6 +195,7 @@ class ComapHousingAbsence(SwitchEntity):
         self._is_on = None
         self._attr_device_class = SwitchDeviceClass.SWITCH
         self._extra_state_attributes = {}
+        self.hass = _HASS
 
     @property
     def device_info(self) -> DeviceInfo:
@@ -192,10 +238,31 @@ class ComapHousingAbsence(SwitchEntity):
         self._extra_state_attributes = events.get("time_shift")
        
     async def async_turn_on(self, **kwargs: Any) -> None:
-        return await self.client.set_absence()
+        self._is_on = True
+        await self.client.set_absence()
+        await self.refresh_all_entities_for_device()
 
     async def async_turn_off(self, **kwargs: Any) -> None:
-        return await self.client.delete_absence()
+        self._is_on = True
+        await self.client.delete_absence()
+        await self.refresh_all_entities_for_device()
+    
+    async def refresh_all_entities_for_device(self):
+        """Rafraîchit toutes les entités liées à un appareil spécifique."""
+        # Récupérer le registre des entités
+        entity_registry = async_get_entity_registry(self.hass)
+
+        # Trouver toutes les entités liées à l'identifiant de l'appareil
+        entities_to_refresh = [
+            entry.entity_id for entry in entity_registry.entities.values()
+            if entry.platform == DOMAIN
+        ]
+
+        # Rafraîchir chaque entité
+        for entity_id in entities_to_refresh:
+            await self.hass.services.async_call(
+               "homeassistant", "update_entity", {"entity_id": entity_id}
+            )
     
 
 class ComapZoneTemporarySwitch(SwitchEntity):
@@ -210,6 +277,7 @@ class ComapZoneTemporarySwitch(SwitchEntity):
         self._extra_state_attributes = {}
         self._is_on = False
         self._extra_state_attributes = {}
+        self.hass = _HASS
 
     @property
     def device_info(self) -> DeviceInfo:
@@ -272,6 +340,7 @@ class ComapZoneTemporarySwitch(SwitchEntity):
             self._is_on = False
             self._extra_state_attributes["end_at"] = None
             self._extra_state_attributes["instruction"] = None
+
     async def async_turn_on(self, **kwargs: Any) -> None:
         return
     
@@ -283,3 +352,21 @@ class ComapZoneTemporarySwitch(SwitchEntity):
             self._is_on = True
         else:
             self._is_on = False
+        await self.refresh_all_entities_for_device()
+
+    async def refresh_all_entities_for_device(self):
+        """Rafraîchit toutes les entités liées à un appareil spécifique."""
+        # Récupérer le registre des entités
+        entity_registry = async_get_entity_registry(self.hass)
+
+        # Trouver toutes les entités liées à l'identifiant de l'appareil
+        entities_to_refresh = [
+            entry.entity_id for entry in entity_registry.entities.values()
+            if entry.platform == DOMAIN
+        ]
+
+        # Rafraîchir chaque entité
+        for entity_id in entities_to_refresh:
+            await self.hass.services.async_call(
+               "homeassistant", "update_entity", {"entity_id": entity_id}
+            )

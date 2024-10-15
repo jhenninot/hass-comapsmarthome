@@ -8,7 +8,7 @@ from homeassistant import config_entries
 from homeassistant.core import callback
 from homeassistant.const import CONF_PASSWORD, CONF_USERNAME
 
-from .const import DOMAIN, COMAP_SENSOR_SCAN_INTERVAL, COMAP_SCHEDULE_SCAN_INTERVAL
+from .const import DOMAIN, COMAP_SENSOR_SCAN_INTERVAL, COMAP_SCHEDULE_SCAN_INTERVAL, ASSIST_COMPATIBILITY
 
 
 DATA_SCHEMA = vol.Schema({
@@ -16,6 +16,7 @@ DATA_SCHEMA = vol.Schema({
     vol.Required(CONF_PASSWORD): str,
     vol.Required(COMAP_SENSOR_SCAN_INTERVAL, default=5): vol.All(int, vol.Clamp(min=1, max=30)),
     vol.Required(COMAP_SCHEDULE_SCAN_INTERVAL, default=5): vol.All(int, vol.Clamp(min=1, max=30)),
+    vol.Required(ASSIST_COMPATIBILITY, default=5): bool,
 })
 
 
@@ -46,6 +47,7 @@ class ComapFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
                     options={
                         COMAP_SENSOR_SCAN_INTERVAL: user_input.get(COMAP_SENSOR_SCAN_INTERVAL, 5),
                         COMAP_SCHEDULE_SCAN_INTERVAL: user_input.get(COMAP_SCHEDULE_SCAN_INTERVAL, 5),
+                        ASSIST_COMPATIBILITY: user_input.get(ASSIST_COMPATIBILITY, True)
                         }
                 )
             
@@ -79,10 +81,12 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
         # Obtenir la valeur actuelle ou utiliser la valeur par défaut
         current_sensor_interval_value = self.config_entry.options.get(COMAP_SENSOR_SCAN_INTERVAL, self.config_entry.data.get(COMAP_SENSOR_SCAN_INTERVAL, 1))
         current_schedule_interval_value = self.config_entry.options.get(COMAP_SCHEDULE_SCAN_INTERVAL, self.config_entry.data.get(COMAP_SCHEDULE_SCAN_INTERVAL, 1))
+        current_assist_compatibility_value = self.config_entry.options.get(ASSIST_COMPATIBILITY, self.config_entry.data.get(ASSIST_COMPATIBILITY, False))
 
         data_schema = vol.Schema({
             vol.Required(COMAP_SENSOR_SCAN_INTERVAL, default=current_sensor_interval_value): vol.All(int, vol.Clamp(min=1, max=30)),
             vol.Required(COMAP_SCHEDULE_SCAN_INTERVAL, default=current_schedule_interval_value): vol.All(int, vol.Clamp(min=1, max=30)),
+            vol.Required(ASSIST_COMPATIBILITY, default=current_assist_compatibility_value): bool
         })
 
         return self.async_show_form(step_id="user", data_schema=data_schema, errors=errors)

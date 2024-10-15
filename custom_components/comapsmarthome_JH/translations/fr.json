@@ -7,8 +7,9 @@
                 "data": {
                     "username": "Login",
                     "password": "Mot de passe",
-                    "sensor_scan_interval": "Interval de scan des sensors (en minutes)",
-                    "schedule_scan_interval": "Interval de scan des plannings (en minutes)"
+                    "sensor_scan_interval": "Intervalle de scan des sensors (en minutes)",
+                    "schedule_scan_interval": "Intervalle de scan des plannings (en minutes)",
+                    "assitant-compatibility": "Rendre les thermostats compatibles avec Alexa et les autres assistants"
                 }
             }
         },
@@ -23,8 +24,9 @@
             "user": {
                 "title": "Options.",
                 "data": {
-                    "sensor_scan_interval": "Interval de scan des sensors (en minutes)",
-                    "schedule_scan_interval": "Interval de scan des plannings (en minutes)"
+                    "sensor_scan_interval": "Intervalle de scan des sensors (en minutes)",
+                    "schedule_scan_interval": "Intervalle de scan des plannings (en minutes)",
+                    "assitant-compatibility": "Rendre les thermostats compatibles avec Alexa et les autres assistants"
                 }
             }
         },

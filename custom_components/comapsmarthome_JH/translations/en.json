@@ -8,7 +8,8 @@
                     "username": "Username",
                     "password": "Password",
                     "sensor_scan_interval": "Sensors scan interval (minutes)",
-                    "schedule_scan_interval": "Schedules scan interval (minutes)"
+                    "schedule_scan_interval": "Schedules scan interval (minutes)",
+                    "assitant-compatibility": "Make climate entities compatible with Alexa and other assistants"
                 }
             }
         },
@@ -24,7 +25,8 @@
                 "title": "Options.",
                 "data": {
                     "sensor_scan_interval": "Sensors scan interval (minutes)",
-                    "schedule_scan_interval": "Schedules scan interval (minutes)"
+                    "schedule_scan_interval": "Schedules scan interval (minutes)",
+                    "assitant-compatibility": "Make climate entities compatible with Alexa and other assistants"
                 }
             }
         },

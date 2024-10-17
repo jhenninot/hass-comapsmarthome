@@ -17,7 +17,7 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.typing import ConfigType
 from homeassistant.helpers.device_registry import DeviceInfo
 
-from .comap_functions import refresh_all_comap_entities, get_connected_object_zone_infos
+from .comap_functions import refresh_all_comap_entities, get_connected_object_zone_infos, get_now
 
 from .comap import ComapClient
 from .const import (
@@ -40,8 +40,6 @@ SENSOR_PLATFORM_SCHEMA = SENSOR_PLATFORM_SCHEMA.extend(
 )
 
 SCAN_INTERVAL = timedelta(minutes=1)
-
-FUSEAU_HORAIRE = ZoneInfo("Europe/Paris")
 
 
 async def async_setup_entry(
@@ -178,12 +176,12 @@ class ComapHousingSensor(Entity):
         _HASS.data[DOMAIN]["connected_objects"] = await _CLIENT.get_housing_connected_objects()
         housing = _HASS.data[DOMAIN]["housing"]
         self._name = housing.get("name")
-        self.attrs["automatic_update_value"] = datetime.now(tz=FUSEAU_HORAIRE).isoformat()
-        self.attrs["automatic_update_label"] = "Mise à jour depuis comap : "
-        self.attrs[ATTR_ADDRESS] = housing.get("address")
-
         thermal_details = _HASS.data[DOMAIN]["thermal_details"]
-        self.attrs["thermal-details"] = thermal_details
+        self.attrs = {
+            "automatic_update_value": get_now(),
+            "automatic_update_label": "Mise à jour depuis comap : ",
+            ATTR_ADDRESS:  housing.get("address")
+        }
         self._state = thermal_details.get("services_available")
         await refresh_all_comap_entities(_HASS, self._id)
                    
@@ -207,6 +205,7 @@ class ComapBatterySensor(Entity):
         if self.zone_id is None:
             self.zone_id = self.housing
         self._unique_id = self.housing + "_" + self.zone_id + "_battery_" + self.model + "_"+ self.sn
+        self.attrs = {}
 
     @property
     def scan_interval(self) -> timedelta:
@@ -228,6 +227,10 @@ class ComapBatterySensor(Entity):
     @property
     def unique_id(self) -> str:
         return self._unique_id
+    
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        return self.attrs
     
     @property
     def device_info(self) -> DeviceInfo:
@@ -257,6 +260,10 @@ class ComapBatterySensor(Entity):
             if object.get("serial_number") == self.sn:
                 batt = object.get("voltage_percent")
         self._state = batt
+        self.attrs = {
+            "automatic_update_value": get_now(),
+            "automatic_update_label": "Mise à jour depuis comap : ",
+        }
 
 
 class ComapDeviceSensor(Entity):
@@ -336,7 +343,11 @@ class ComapDeviceSensor(Entity):
 
     async def async_update(self):
         objects = _HASS.data[DOMAIN]["connected_objects"]
+        self.attrs = {
+            "automatic_update_value": get_now(),
+            "automatic_update_label": "Mise à jour depuis comap : ",
+        }
         for object in objects:
             if object.get("serial_number") == self.sn:
-                self.attrs = object
+                self.attrs.update(object)
                 self._state = object.get("communication_status")

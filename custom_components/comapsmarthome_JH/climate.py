@@ -216,25 +216,7 @@ class ComapZoneThermostat(CoordinatorEntity[ComapCoordinator], ClimateEntity):
 
     @property
     def extra_state_attributes(self) -> dict[str, Any] | None:
-        keys = [
-            "schedule_id",
-            "open_window",
-            "last_transmission",
-            "next_timeslot",
-            "kids_lock",
-        ]
-        try:
-            return {key: self.attrs[key] for key in keys}
-        except:
-            #_LOGGER.warning("Failed to update extra attributes for zone " + self.name)
-            return None
-
-    @callback
-    def _handle_coordinator_update(self) -> None:
-        """Handle updated data from the coordinator."""
-        self.attrs.update(self.coordinator.data[self.zone_id])
-        self.attributes_update(self.coordinator.data[self.zone_id])
-        self.async_schedule_update_ha_state(force_refresh=True)
+        return self.attrs
 
     async def async_added_to_hass(self) -> None:
         self.added = True
@@ -303,13 +285,13 @@ class ComapZoneThermostat(CoordinatorEntity[ComapCoordinator], ClimateEntity):
             self._preset_mode = self.map_preset_mode(
                 zone_data.get("set_point").get("instruction")
             )
+        next_timeslot = zone_data["next_timeslot"]
+        self.attrs["next_timeslot"] = next_timeslot["begin_at"]
+        self.attrs["next_instruction"] = next_timeslot["set_point"]["instruction"]
 
     def map_hvac_mode(self, zone_data):
         heating_system_state = zone_data.get("heating_system_state")
         type = zone_data.get("set_point_type")
-        #todo : détecter si on a un forçage sur la zone, et mettre à jour en conséquence...
-        #il va donc falloir aller rechercher si dans la zone on a une instruction emporaire, et ajuster le HVACMode sur 'HEAT'
-
         temporary_instruction = zone_data.get("events").get("temporary_instruction")
         if temporary_instruction is None:
             hvac_mode_map = {"off": HVACMode.OFF, "on": HVACMode.AUTO}

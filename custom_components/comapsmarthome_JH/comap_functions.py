@@ -1,4 +1,6 @@
 import logging
+from datetime import timedelta, datetime
+from zoneinfo import ZoneInfo
 
 from homeassistant.helpers.entity_registry import async_get as async_get_entity_registry
 from .const import DOMAIN
@@ -55,3 +57,6 @@ def get_connected_object_zone_infos(object_sn, thermal_details):
         "id": zone_id,
         "title": zone_title
     }
+def get_now():
+    time_zone = ZoneInfo("Europe/Paris")
+    return datetime.now(tz=time_zone).isoformat()

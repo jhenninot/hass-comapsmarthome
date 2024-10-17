@@ -1,4 +1,6 @@
-from datetime import timedelta
+from datetime import timedelta, datetime
+from zoneinfo import ZoneInfo
+
 import logging
 from typing import Any, Optional
 
@@ -38,6 +40,8 @@ SENSOR_PLATFORM_SCHEMA = SENSOR_PLATFORM_SCHEMA.extend(
 )
 
 SCAN_INTERVAL = timedelta(minutes=1)
+
+FUSEAU_HORAIRE = ZoneInfo("Europe/Paris")
 
 
 async def async_setup_entry(
@@ -174,6 +178,8 @@ class ComapHousingSensor(Entity):
         _HASS.data[DOMAIN]["connected_objects"] = await _CLIENT.get_housing_connected_objects()
         housing = _HASS.data[DOMAIN]["housing"]
         self._name = housing.get("name")
+        self.attrs["automatic_update_value"] = datetime.now(tz=FUSEAU_HORAIRE).isoformat()
+        self.attrs["automatic_update_label"] = "Mise à jour depuis comap : "
         self.attrs[ATTR_ADDRESS] = housing.get("address")
 
         thermal_details = _HASS.data[DOMAIN]["thermal_details"]
@@ -273,7 +279,6 @@ class ComapDeviceSensor(Entity):
         self.zone_id = obj_zone_infos.get("id")
         if self.zone_id is None:
             self.zone_id = self.housing
-
         self._unique_id = self.housing + "_" + self.zone_id + "_" + self.model + "_"+ self.sn
 
     @property

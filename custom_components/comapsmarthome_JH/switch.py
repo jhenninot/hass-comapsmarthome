@@ -9,10 +9,11 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity_registry import async_get as async_get_entity_registry
 
-from . import ComapClient, ComapCoordinator
+from .comap import ComapClient
 from .const import DOMAIN
+from .comap_functions import refresh_main_entity
 
-SCAN_INTERVAL = timedelta(minutes=1)
+SCAN_INTERVAL = timedelta(minutes=60)
 _HASS = HomeAssistant
 
 async def async_setup_entry(
@@ -20,12 +21,14 @@ async def async_setup_entry(
     config_entry: ConfigEntry,
     async_add_entities,
 ) -> None:
+    
     config = hass.data[DOMAIN][config_entry.entry_id]
     client = ComapClient(username=config[CONF_USERNAME], password=config[CONF_PASSWORD])
-    global HOUSING_DATA
-    HOUSING_DATA = hass.data[DOMAIN]["housing"]
-    req = await client.get_zones()
-    zones = req.get("zones")
+
+    global _HASS
+    _HASS = hass
+
+    zones = hass.data[DOMAIN]["thermal_details"].get("zones")
 
     temporary_instructions_switches = [
         ComapZoneTemporarySwitch(client, zone)
@@ -44,11 +47,12 @@ class ComapHousingOnOff(SwitchEntity):
     def __init__(self, client) -> None:
         super().__init__()
         self.client = client
-        self.housing = HOUSING_DATA.get("id")
-        self._name = HOUSING_DATA.get("name")
+        self.housing = _HASS.data[DOMAIN]["housing"].get("id")
+        self._name = _HASS.data[DOMAIN]["housing"].get("name")
         self._is_on = None
         self._attr_device_class = SwitchDeviceClass.SWITCH
         self.hass = _HASS
+        self._id = self.housing + "_on_off"
 
     @property
     def device_info(self) -> DeviceInfo:
@@ -56,9 +60,9 @@ class ComapHousingOnOff(SwitchEntity):
         return DeviceInfo(
             identifiers={
                 # Serial numbers are unique identifiers within a specific domain
-                (DOMAIN, HOUSING_DATA.get("id"))
+                (DOMAIN, _HASS.data[DOMAIN]["housing"].get("id"))
             },
-            name=HOUSING_DATA.get("name"),
+            name=_HASS.data[DOMAIN]["housing"].get("name"),
             manufacturer="comap",
         )
 
@@ -70,7 +74,7 @@ class ComapHousingOnOff(SwitchEntity):
     @property
     def unique_id(self) -> str:
         """Return the unique ID of the sensor."""
-        return self.housing + "_on_off"
+        return self._id
 
     @property
     def is_on(self):
@@ -78,42 +82,25 @@ class ComapHousingOnOff(SwitchEntity):
         return self._is_on
     
     async def async_update(self):
-        zones = await self.client.get_zones()
+        zones = _HASS.data[DOMAIN]["thermal_details"]
         self._is_on = zones["heating_system_state"] == "on"
 
     async def async_turn_on(self, **kwargs: Any) -> None:
         ret = await self.client.turn_on()
-        await self.refresh_all_entities_for_device()
+        await refresh_main_entity(_HASS)
         return ret
 
     async def async_turn_off(self, **kwargs: Any) -> None:
         ret =  await self.client.turn_off()
-        await self.refresh_all_entities_for_device()
+        await refresh_main_entity(_HASS)
         return ret
-    
-    async def refresh_all_entities_for_device(self):
-        """Rafraîchit toutes les entités liées à un appareil spécifique."""
-        # Récupérer le registre des entités
-        entity_registry = async_get_entity_registry(self.hass)
-
-        # Trouver toutes les entités liées à l'identifiant de l'appareil
-        entities_to_refresh = [
-            entry.entity_id for entry in entity_registry.entities.values()
-            if entry.platform == DOMAIN
-        ]
-
-        # Rafraîchir chaque entité
-        for entity_id in entities_to_refresh:
-            await self.hass.services.async_call(
-               "homeassistant", "update_entity", {"entity_id": entity_id}
-            )
     
 class ComapHousingHoliday(SwitchEntity):
     def __init__(self, client) -> None:
         super().__init__()
         self.client = client
-        self.housing = HOUSING_DATA.get("id")
-        self._name = "Holiday " + HOUSING_DATA.get("name")
+        self.housing = _HASS.data[DOMAIN]["housing"].get("id")
+        self._name = "Holiday " + _HASS.data[DOMAIN]["housing"].get("name")
         self._is_on = None
         self._attr_device_class = SwitchDeviceClass.SWITCH
         self._extra_state_attributes = {}
@@ -125,9 +112,9 @@ class ComapHousingHoliday(SwitchEntity):
         return DeviceInfo(
             identifiers={
                 # Serial numbers are unique identifiers within a specific domain
-                (DOMAIN, HOUSING_DATA.get("id"))
+                (DOMAIN, _HASS.data[DOMAIN]["housing"].get("id"))
             },
-            name=HOUSING_DATA.get("name"),
+            name=_HASS.data[DOMAIN]["housing"].get("name"),
             manufacturer="comap",
         )
 
@@ -151,8 +138,8 @@ class ComapHousingHoliday(SwitchEntity):
         return self._extra_state_attributes
 
     async def async_update(self):
-        zones = await self.client.get_zones()
-        events = zones.get("events")
+        thermal_details = _HASS.data[DOMAIN]["thermal_details"]
+        events = thermal_details.get("events")
         if ('absence' in events):
             self._is_on = True
         else:
@@ -162,36 +149,19 @@ class ComapHousingHoliday(SwitchEntity):
     async def async_turn_on(self, **kwargs: Any) -> None:
         self._is_on = True
         await self.client.set_holiday()
-        await self.refresh_all_entities_for_device()
+        await refresh_main_entity(_HASS)
 
     async def async_turn_off(self, **kwargs: Any) -> None:
         self._is_on = False
         await self.client.delete_holiday()
-        await self.refresh_all_entities_for_device()
-    
-    async def refresh_all_entities_for_device(self):
-        """Rafraîchit toutes les entités liées à un appareil spécifique."""
-        # Récupérer le registre des entités
-        entity_registry = async_get_entity_registry(self.hass)
-
-        # Trouver toutes les entités liées à l'identifiant de l'appareil
-        entities_to_refresh = [
-            entry.entity_id for entry in entity_registry.entities.values()
-            if entry.platform == DOMAIN
-        ]
-
-        # Rafraîchir chaque entité
-        for entity_id in entities_to_refresh:
-            await self.hass.services.async_call(
-               "homeassistant", "update_entity", {"entity_id": entity_id}
-            )
+        await refresh_main_entity(_HASS)
     
 class ComapHousingAbsence(SwitchEntity):
     def __init__(self, client) -> None:
         super().__init__()
         self.client = client
-        self.housing = HOUSING_DATA.get("id")
-        self._name = "Absence " + HOUSING_DATA.get("name")
+        self.housing = _HASS.data[DOMAIN]["housing"].get("id")
+        self._name = "Absence " + _HASS.data[DOMAIN]["housing"].get("name")
         self._is_on = None
         self._attr_device_class = SwitchDeviceClass.SWITCH
         self._extra_state_attributes = {}
@@ -203,9 +173,9 @@ class ComapHousingAbsence(SwitchEntity):
         return DeviceInfo(
             identifiers={
                 # Serial numbers are unique identifiers within a specific domain
-                (DOMAIN, HOUSING_DATA.get("id"))
+                (DOMAIN, _HASS.data[DOMAIN]["housing"].get("id"))
             },
-            name=HOUSING_DATA.get("name"),
+            name=_HASS.data[DOMAIN]["housing"].get("name"),
             manufacturer="comap",
         )
 
@@ -229,8 +199,8 @@ class ComapHousingAbsence(SwitchEntity):
         return self._extra_state_attributes
 
     async def async_update(self):
-        zones = await self.client.get_zones()
-        events = zones.get("events")
+        thermal_details = _HASS.data[DOMAIN]["thermal_details"]
+        events = thermal_details.get("events")
         if ('time_shift' in events):
             self._is_on = True
         else:
@@ -240,37 +210,20 @@ class ComapHousingAbsence(SwitchEntity):
     async def async_turn_on(self, **kwargs: Any) -> None:
         self._is_on = True
         await self.client.set_absence()
-        await self.refresh_all_entities_for_device()
+        await refresh_main_entity(_HASS)
 
     async def async_turn_off(self, **kwargs: Any) -> None:
         self._is_on = True
         await self.client.delete_absence()
-        await self.refresh_all_entities_for_device()
-    
-    async def refresh_all_entities_for_device(self):
-        """Rafraîchit toutes les entités liées à un appareil spécifique."""
-        # Récupérer le registre des entités
-        entity_registry = async_get_entity_registry(self.hass)
-
-        # Trouver toutes les entités liées à l'identifiant de l'appareil
-        entities_to_refresh = [
-            entry.entity_id for entry in entity_registry.entities.values()
-            if entry.platform == DOMAIN
-        ]
-
-        # Rafraîchir chaque entité
-        for entity_id in entities_to_refresh:
-            await self.hass.services.async_call(
-               "homeassistant", "update_entity", {"entity_id": entity_id}
-            )
+        await refresh_main_entity(_HASS)
     
 
 class ComapZoneTemporarySwitch(SwitchEntity):
     def __init__(self, client, zone) -> None:
         super().__init__()
         self.client = client
-        self.housing = HOUSING_DATA.get("id")
-        self._name = "Temporary " + HOUSING_DATA.get("name") + " " + zone.get("title")
+        self.housing = _HASS.data[DOMAIN]["housing"].get("id")
+        self._name = "Temporary " + _HASS.data[DOMAIN]["housing"].get("name") + " " + zone.get("title")
         self._id = zone.get("id") + "_temporary"
         self.zone_name = zone.get("title")
         self.zone_id = zone.get("id")
@@ -324,8 +277,8 @@ class ComapZoneTemporarySwitch(SwitchEntity):
 
     async def async_update(self):
         self._extra_state_attributes = {}
-        req = await self.client.get_zones()
-        zones = req.get("zones")
+        thermal_details = _HASS.data[DOMAIN]["thermal_details"]
+        zones = thermal_details.get("zones")
         events = {}
         for zone in zones:
             if zone.get("id") == self.zone_id:
@@ -352,21 +305,4 @@ class ComapZoneTemporarySwitch(SwitchEntity):
             self._is_on = True
         else:
             self._is_on = False
-        await self.refresh_all_entities_for_device()
-
-    async def refresh_all_entities_for_device(self):
-        """Rafraîchit toutes les entités liées à un appareil spécifique."""
-        # Récupérer le registre des entités
-        entity_registry = async_get_entity_registry(self.hass)
-
-        # Trouver toutes les entités liées à l'identifiant de l'appareil
-        entities_to_refresh = [
-            entry.entity_id for entry in entity_registry.entities.values()
-            if entry.platform == DOMAIN
-        ]
-
-        # Rafraîchir chaque entité
-        for entity_id in entities_to_refresh:
-            await self.hass.services.async_call(
-               "homeassistant", "update_entity", {"entity_id": entity_id}
-            )
+        await refresh_main_entity(_HASS)

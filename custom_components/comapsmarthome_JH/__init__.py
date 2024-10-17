@@ -31,12 +31,18 @@ async def async_setup_entry(
 
     config = hass.data[DOMAIN][entry.entry_id]
     client = ComapClient(username=config[CONF_USERNAME], password=config[CONF_PASSWORD])
-    housing = await client.async_gethousing_data()
-    hass.data[DOMAIN]["housing"] = housing
+    
+    hass.data[DOMAIN]["housing"] = await client.async_gethousing_data()
+    hass.data[DOMAIN]["thermal_details"] = await client.get_thermal_details()
+    hass.data[DOMAIN]["connected_objects"] = await client.get_housing_connected_objects()
+    hass.data[DOMAIN]["schedules"] = await client.get_schedules()
 
     # Forward the setup to the sensor platform.
     await hass.config_entries.async_forward_entry_setups(
-        entry, ["climate", "sensor", "binary_sensor", "switch", "select"]
+        entry, ["sensor"]
+    )
+    await hass.config_entries.async_forward_entry_setups(
+        entry, ["binary_sensor", "switch", "select", "climate"]
     )
 
     return True
@@ -52,7 +58,7 @@ class ComapCoordinator(DataUpdateCoordinator):
             # Name of the data. For logging purposes.
             name="ComapSmartHome",
             # Polling interval. Will only be polled if there are subscribers.
-            update_interval=timedelta(seconds=30),
+            update_interval=timedelta(minutes=60),
         )
         self.client = comap_client
 

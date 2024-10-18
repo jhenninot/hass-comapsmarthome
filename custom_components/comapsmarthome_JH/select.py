@@ -16,7 +16,7 @@ from homeassistant.const import (
     CONF_PASSWORD,
 )
 
-from . import ComapCoordinator, ComapClient
+from . import ComapDataCoordinator, ComapClient
 from .comap_functions import refresh_main_entity
 
 from .const import (

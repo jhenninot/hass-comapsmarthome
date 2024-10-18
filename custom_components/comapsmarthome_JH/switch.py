@@ -7,14 +7,12 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_PASSWORD, CONF_USERNAME
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.device_registry import DeviceInfo
-from homeassistant.helpers.entity_registry import async_get as async_get_entity_registry
+from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .comap import ComapClient
 from .const import DOMAIN
 from .comap_functions import refresh_main_entity
-
-SCAN_INTERVAL = timedelta(minutes=60)
-_HASS = HomeAssistant
+from . import ComapDataCoordinator
 
 async def async_setup_entry(
     hass: HomeAssistant,
@@ -25,17 +23,17 @@ async def async_setup_entry(
     config = hass.data[DOMAIN][config_entry.entry_id]
     client = ComapClient(username=config[CONF_USERNAME], password=config[CONF_PASSWORD])
 
-    global _HASS
-    _HASS = hass
+    coordinator = ComapDataCoordinator(hass)
+    await coordinator.async_config_entry_first_refresh()
 
     zones = hass.data[DOMAIN]["thermal_details"].get("zones")
 
     temporary_instructions_switches = [
-        ComapZoneTemporarySwitch(client, zone)
+        ComapZoneTemporarySwitch(coordinator,client, zone)
         for zone in zones
     ]
 
-    housing_switches = [ComapHousingOnOff(client),ComapHousingHoliday(client),ComapHousingAbsence(client)]
+    housing_switches = [ComapHousingOnOff(coordinator,client),ComapHousingHoliday(coordinator,client),ComapHousingAbsence(coordinator,client)]
     zones_switches = temporary_instructions_switches
 
     switches = housing_switches + zones_switches
@@ -43,26 +41,25 @@ async def async_setup_entry(
     async_add_entities(switches, update_before_add=True)
 
 
-class ComapHousingOnOff(SwitchEntity):
-    def __init__(self, client) -> None:
-        super().__init__()
+class ComapHousingOnOff(CoordinatorEntity, SwitchEntity):
+    def __init__(self, coordinator, client) -> None:
+        super().__init__(coordinator)
         self.client = client
-        self.housing = _HASS.data[DOMAIN]["housing"].get("id")
-        self._name = _HASS.data[DOMAIN]["housing"].get("name")
-        self._is_on = None
+        self.housing_id = coordinator.data["housing"].get("id")
+        self.housing_name = coordinator.data["housing"].get("name")
+        self._name = self.housing_name
         self._attr_device_class = SwitchDeviceClass.SWITCH
-        self.hass = _HASS
-        self._id = self.housing + "_on_off"
-
+        self._id = self.housing_id + "_on_off"
+#fixes
     @property
     def device_info(self) -> DeviceInfo:
         """Return the device info."""
         return DeviceInfo(
             identifiers={
                 # Serial numbers are unique identifiers within a specific domain
-                (DOMAIN, _HASS.data[DOMAIN]["housing"].get("id"))
+                (DOMAIN, self.housing_id)
             },
-            name=_HASS.data[DOMAIN]["housing"].get("name"),
+            name=self.housing_name,
             manufacturer="comap",
         )
 
@@ -75,36 +72,41 @@ class ComapHousingOnOff(SwitchEntity):
     def unique_id(self) -> str:
         """Return the unique ID of the sensor."""
         return self._id
+    
 
+#variables
     @property
     def is_on(self):
         """If the sensor is currently on or off."""
+        thermal_details = self.coordinator.data["thermal_details"]
+        self._is_on = thermal_details["heating_system_state"] == "on"
         return self._is_on
-    
-    async def async_update(self):
-        zones = _HASS.data[DOMAIN]["thermal_details"]
-        self._is_on = zones["heating_system_state"] == "on"
+
+#fonctions
 
     async def async_turn_on(self, **kwargs: Any) -> None:
-        ret = await self.client.turn_on()
-        await refresh_main_entity(_HASS)
-        return ret
+        self._is_on = True
+        await self.client.turn_on()
+        await self.coordinator.async_request_refresh()
+        self.async_write_ha_state()
 
     async def async_turn_off(self, **kwargs: Any) -> None:
-        ret =  await self.client.turn_off()
-        await refresh_main_entity(_HASS)
-        return ret
+        self._is_on = True
+        await self.client.turn_off()
+        await self.coordinator.async_request_refresh()
+        self.async_write_ha_state()
+
     
-class ComapHousingHoliday(SwitchEntity):
-    def __init__(self, client) -> None:
-        super().__init__()
+class ComapHousingHoliday(CoordinatorEntity, SwitchEntity):
+    def __init__(self, coordinator, client) -> None:
+        super().__init__(coordinator)
         self.client = client
-        self.housing = _HASS.data[DOMAIN]["housing"].get("id")
-        self._name = "Holiday " + _HASS.data[DOMAIN]["housing"].get("name")
+        self.housing_id = coordinator.data["housing"].get("id")
+        self.housing_name = coordinator.data["housing"].get("name")
+        self._name = "Holiday " + coordinator.data["housing"].get("name")
         self._is_on = None
         self._attr_device_class = SwitchDeviceClass.SWITCH
-        self._extra_state_attributes = {}
-        self.hass = _HASS
+
 
     @property
     def device_info(self) -> DeviceInfo:
@@ -112,13 +114,14 @@ class ComapHousingHoliday(SwitchEntity):
         return DeviceInfo(
             identifiers={
                 # Serial numbers are unique identifiers within a specific domain
-                (DOMAIN, _HASS.data[DOMAIN]["housing"].get("id"))
+                (DOMAIN, self.housing_id)
             },
-            name=_HASS.data[DOMAIN]["housing"].get("name"),
+            name=self.housing_name,
             manufacturer="comap",
         )
 
     @property
+
     def name(self) -> str:
         """Return the name of the entity."""
         return self._name
@@ -126,46 +129,39 @@ class ComapHousingHoliday(SwitchEntity):
     @property
     def unique_id(self) -> str:
         """Return the unique ID of the sensor."""
-        return self.housing + "_holiday"
+        return self.housing_id + "_holiday"
 
     @property
     def is_on(self):
         """If the sensor is currently on or off."""
-        return self._is_on
-    
-    @property
-    def extra_state_attributes(self):
-        return self._extra_state_attributes
-
-    async def async_update(self):
-        thermal_details = _HASS.data[DOMAIN]["thermal_details"]
+        thermal_details = self.coordinator.data["thermal_details"]
         events = thermal_details.get("events")
         if ('absence' in events):
             self._is_on = True
         else:
             self._is_on = False
-        self._extra_state_attributes = events.get("absence")
        
     async def async_turn_on(self, **kwargs: Any) -> None:
         self._is_on = True
         await self.client.set_holiday()
-        await refresh_main_entity(_HASS)
+        await self.coordinator.async_request_refresh()
+        self.async_write_ha_state()
 
     async def async_turn_off(self, **kwargs: Any) -> None:
         self._is_on = False
         await self.client.delete_holiday()
-        await refresh_main_entity(_HASS)
+        await self.coordinator.async_request_refresh()
+        self.async_write_ha_state()
     
-class ComapHousingAbsence(SwitchEntity):
-    def __init__(self, client) -> None:
-        super().__init__()
+class ComapHousingAbsence(CoordinatorEntity, SwitchEntity):
+    def __init__(self, coordinator, client) -> None:
+        super().__init__(coordinator)
         self.client = client
-        self.housing = _HASS.data[DOMAIN]["housing"].get("id")
-        self._name = "Absence " + _HASS.data[DOMAIN]["housing"].get("name")
+        self.housing_id = coordinator.data["housing"].get("id")
+        self.housing_name = coordinator.data["housing"].get("name")
+        self._name = "Absence " + coordinator.data["housing"].get("name")
         self._is_on = None
         self._attr_device_class = SwitchDeviceClass.SWITCH
-        self._extra_state_attributes = {}
-        self.hass = _HASS
 
     @property
     def device_info(self) -> DeviceInfo:
@@ -173,9 +169,9 @@ class ComapHousingAbsence(SwitchEntity):
         return DeviceInfo(
             identifiers={
                 # Serial numbers are unique identifiers within a specific domain
-                (DOMAIN, _HASS.data[DOMAIN]["housing"].get("id"))
+                (DOMAIN, self.housing_id)
             },
-            name=_HASS.data[DOMAIN]["housing"].get("name"),
+            name=self.housing_name,
             manufacturer="comap",
         )
 
@@ -187,50 +183,41 @@ class ComapHousingAbsence(SwitchEntity):
     @property
     def unique_id(self) -> str:
         """Return the unique ID of the sensor."""
-        return self.housing + "_absence"
+        return self.housing_id + "_absence"
 
     @property
     def is_on(self):
-        """If the sensor is currently on or off."""
-        return self._is_on
-    
-    @property
-    def extra_state_attributes(self):
-        return self._extra_state_attributes
-
-    async def async_update(self):
-        thermal_details = _HASS.data[DOMAIN]["thermal_details"]
+        thermal_details = self.coordinator.data["thermal_details"]
         events = thermal_details.get("events")
         if ('time_shift' in events):
-            self._is_on = True
+            return True
         else:
-            self._is_on = False
-        self._extra_state_attributes = events.get("time_shift")
+            return False
        
     async def async_turn_on(self, **kwargs: Any) -> None:
         self._is_on = True
         await self.client.set_absence()
-        await refresh_main_entity(_HASS)
+        await self.coordinator.async_request_refresh()
 
     async def async_turn_off(self, **kwargs: Any) -> None:
         self._is_on = True
         await self.client.delete_absence()
-        await refresh_main_entity(_HASS)
+        await self.coordinator.async_request_refresh()
     
 
-class ComapZoneTemporarySwitch(SwitchEntity):
-    def __init__(self, client, zone) -> None:
-        super().__init__()
+class ComapZoneTemporarySwitch(CoordinatorEntity, SwitchEntity):
+    def __init__(self, coordinator, client, zone) -> None:
+        super().__init__(coordinator)
         self.client = client
-        self.housing = _HASS.data[DOMAIN]["housing"].get("id")
-        self._name = "Temporary " + _HASS.data[DOMAIN]["housing"].get("name") + " " + zone.get("title")
+        self.housing_id = coordinator.data["housing"].get("id")
+        self.housing_name = coordinator.data["housing"].get("name")
+        self._name = "Temporary " + self.housing_name + " " + zone.get("title")
         self._id = zone.get("id") + "_temporary"
         self.zone_name = zone.get("title")
         self.zone_id = zone.get("id")
         self._extra_state_attributes = {}
         self._is_on = False
         self._extra_state_attributes = {}
-        self.hass = _HASS
 
     @property
     def device_info(self) -> DeviceInfo:
@@ -268,31 +255,36 @@ class ComapZoneTemporarySwitch(SwitchEntity):
     @property
     def extra_state_attributes(self):
         # Retourne un dictionnaire d'attributs supplémentaires
-        return self._extra_state_attributes
+        return self.get_state_and_attr()["attrs"]
     
     @property
     def is_on(self):
         """If the sensor is currently on or off."""
-        return self._is_on
+        return self.get_state_and_attr()["is_on"]
 
-    async def async_update(self):
-        self._extra_state_attributes = {}
-        thermal_details = _HASS.data[DOMAIN]["thermal_details"]
+    def get_state_and_attr (self):
+        attrs = {}
+        is_on = None
+        thermal_details = self.coordinator.data["thermal_details"]
         zones = thermal_details.get("zones")
         events = {}
         for zone in zones:
             if zone.get("id") == self.zone_id:
                 events = zone.get("events")
-        self._extra_state_attributes["temporary_instruction"] = events.get("temporary_instruction")
+        attrs["temporary_instruction"] = events.get("temporary_instruction")
         if ('temporary_instruction' in events):
             temporary_instruction = events.get("temporary_instruction")
-            self._is_on = True
-            self._extra_state_attributes["end_at"] = temporary_instruction.get("end_at")
-            self._extra_state_attributes["instruction"] = temporary_instruction.get("set_point").get("instruction")
+            is_on = True
+            attrs["end_at"] = temporary_instruction.get("end_at")
+            attrs["instruction"] = temporary_instruction.get("set_point").get("instruction")
         else:
-            self._is_on = False
-            self._extra_state_attributes["end_at"] = None
-            self._extra_state_attributes["instruction"] = None
+            is_on = False
+            attrs["end_at"] = None
+            attrs["instruction"] = None
+        return {
+            "is_on": is_on,
+            "attrs": attrs
+        }
 
     async def async_turn_on(self, **kwargs: Any) -> None:
         return
@@ -305,4 +297,5 @@ class ComapZoneTemporarySwitch(SwitchEntity):
             self._is_on = True
         else:
             self._is_on = False
-        await refresh_main_entity(_HASS)
+        await self.coordinator.async_request_refresh()
+        self.async_write_ha_state()

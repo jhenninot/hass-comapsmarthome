@@ -27,10 +27,8 @@ from homeassistant.helpers import config_validation as cv, entity_platform
 from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.typing import ConfigType
-from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from homeassistant.helpers.entity_registry import async_get as async_get_entity_registry
 
-from . import ComapCoordinator
 from .comap import ComapClient
 from .const import ATTR_SCHEDULE_NAME, DOMAIN, SERVICE_SET_SCHEDULE, ASSIST_COMPATIBILITY
 from .comap_functions import refresh_main_entity
@@ -79,7 +77,6 @@ async def async_setup_platform(
     """Set up the comapsmarthome platform."""
 
     client = ComapClient(username=config[CONF_USERNAME], password=config[CONF_PASSWORD])
-    coordinator = ComapCoordinator(hass, client)
 
     housing_details = hass.data[DOMAIN]["thermal_details"]
     heating_system_state = housing_details.get("heating_system_state")
@@ -88,11 +85,9 @@ async def async_setup_platform(
         zone.update({"heating_system_state": heating_system_state})
 
     zones = [
-        ComapZoneThermostat(coordinator, client, zone, assist_compatibility)
+        ComapZoneThermostat(client, zone, assist_compatibility)
         for zone in housing_details.get("zones")
     ]
-
-    await coordinator.async_config_entry_first_refresh()
 
     async_add_entities(zones, update_before_add=True)
 
@@ -112,7 +107,7 @@ async def async_setup_platform(
     return True
 
 
-class ComapZoneThermostat(CoordinatorEntity[ComapCoordinator], ClimateEntity):
+class ComapZoneThermostat(ClimateEntity):
     _attr_target_temperature_step = 0.5
     _attr_temperature_unit = UnitOfTemperature.CELSIUS
     #_attr_hvac_modes = [HVACMode.HEAT, HVACMode.OFF, HVACMode.AUTO]
@@ -127,9 +122,9 @@ class ComapZoneThermostat(CoordinatorEntity[ComapCoordinator], ClimateEntity):
     _attr_hvac_mode: HVACMode | None
     _attr_hvac_action: HVACAction | None
 
-    def __init__(self, coordinator: ComapCoordinator, client, zone, assist_compatibility):
+    def __init__(self, client, zone, assist_compatibility):
         self.hass = _HASS
-        super().__init__(coordinator)
+        super().__init__()
         self._assist_compatibility = assist_compatibility
         self._attr_hvac_modes = [HVACMode.OFF, HVACMode.HEAT]
         if not assist_compatibility:
@@ -253,7 +248,6 @@ class ComapZoneThermostat(CoordinatorEntity[ComapCoordinator], ClimateEntity):
         await refresh_main_entity(_HASS)
 
     async def async_update(self):
-        #zone_data = await self.hass.async_add_executor_job(self.client.get_zone, self.zone_id)
         zone_data = None
         thermal_details = _HASS.data[DOMAIN]["thermal_details"]
         zones = thermal_details.get("zones")
@@ -327,7 +321,7 @@ class ComapZoneThermostat(CoordinatorEntity[ComapCoordinator], ClimateEntity):
             self._attr_target_temperature = instruction
         elif self.set_point_type == "defined_temperature":
             try:
-                temperatures = self.coordinator.data["temperatures"]
+                temperatures = _HASS.data[DOMAIN]["temperatures"]
                 if instruction in temperatures:
                     self._attr_target_temperature = temperatures[instruction]
                 elif instruction in temperatures["connected"]:
@@ -344,8 +338,5 @@ class ComapZoneThermostat(CoordinatorEntity[ComapCoordinator], ClimateEntity):
     async def service_set_schedule(self, **kwargs: Any):
         """Set schedule by id for the zone"""
         r = await self.client.set_schedule(self.zone_id, kwargs.get(ATTR_SCHEDULE_NAME))
-
-        # Update the data
-        await self.coordinator.async_request_refresh()
-        
+        await refresh_main_entity(_HASS)
         return r

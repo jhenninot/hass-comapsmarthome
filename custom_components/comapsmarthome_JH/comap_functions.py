@@ -8,6 +8,7 @@ from .const import DOMAIN
 _LOGGER = logging.getLogger(__name__)
 
 async def setComapValues(hass,client):
+    hass.data[DOMAIN]["temperatures"] = await client.get_custom_temperatures()
     hass.data[DOMAIN]["housing"] = await client.async_gethousing_data()
     hass.data[DOMAIN]["thermal_details"] = await client.get_thermal_details()
     hass.data[DOMAIN]["connected_objects"] = await client.get_housing_connected_objects()
@@ -68,3 +69,11 @@ def get_connected_object_zone_infos(object_sn, thermal_details):
 def get_now():
     time_zone = ZoneInfo("Europe/Paris")
     return datetime.now(tz=time_zone).isoformat()
+
+def get_zone_thermal_details (zone_id,thermal_details):
+    zones = thermal_details.get("zones")
+    target_zone = None
+    for zone in zones:
+        if zone.get("id") == zone_id:
+            target_zone = zone
+    return target_zone

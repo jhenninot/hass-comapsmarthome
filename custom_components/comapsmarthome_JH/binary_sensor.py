@@ -9,10 +9,10 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_PASSWORD, CONF_USERNAME
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.device_registry import DeviceInfo
-from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from . import ComapClient, ComapCoordinator
+from . import ComapClient
 from .const import DOMAIN
+from.comap_functions import get_zone_thermal_details
 
 
 async def async_setup_entry(
@@ -26,31 +26,34 @@ async def async_setup_entry(
     global HOUSING_DATA
     HOUSING_DATA = hass.data[DOMAIN]["housing"]
 
-    coordinator = ComapCoordinator(hass, client)
-    await coordinator.async_config_entry_first_refresh()
+    global _HASS
+    _HASS = hass
+
+    zones = hass.data[DOMAIN]["thermal_details"].get("zones")
+
     entities = list()
-    for zone_id, zone in coordinator.data.items():
+    for zone in zones:
         if (
             "last_presence_detected" in zone.keys()
             and zone["last_presence_detected"] != None
         ):
             entities.append(
                 ComapPresenceSensor(
-                    coordinator=coordinator, zone_id=zone_id, client=client
+                    zone_id=zone.get("id"), zone_name=zone.get("title"), client=client
                 )
             )
     # entities: entities
     async_add_entities(entities)
 
 
-class ComapPresenceSensor(CoordinatorEntity[ComapCoordinator], BinarySensorEntity):
-    def __init__(self, coordinator: ComapCoordinator, zone_id, client):
-        super().__init__(coordinator)
+class ComapPresenceSensor(BinarySensorEntity):
+    def __init__(self, zone_id, zone_name, client):
+        super().__init__()
         self.client = client
-        self.coordinator = coordinator
         self.zone_id = zone_id
+        self.zone_name = zone_name
         self._attr_device_class = BinarySensorDeviceClass.OCCUPANCY
-        self._name = self.coordinator.data[self.zone_id]["title"] + " presence"
+        self._name = zone_name + " presence"
         self._id = HOUSING_DATA.get("id") + "_" + zone_id + "_presence"
         self._is_on = None
         self.attrs = dict()
@@ -63,7 +66,7 @@ class ComapPresenceSensor(CoordinatorEntity[ComapCoordinator], BinarySensorEntit
                 # Serial numbers are unique identifiers within a specific domain
                 (DOMAIN, self.zone_id)
             },
-            name=self.coordinator.data[self.zone_id]["title"],
+            name=self.zone_name,
             manufacturer="comap",
         )
 
@@ -86,17 +89,14 @@ class ComapPresenceSensor(CoordinatorEntity[ComapCoordinator], BinarySensorEntit
     def extra_state_attributes(self) -> dict:
         return self.attrs
 
-    @callback
-    def _handle_coordinator_update(self) -> None:
-        """Handle updated data from the coordinator."""
-        self._is_on = self.is_occupied(
-            self.coordinator.data[self.zone_id]["last_presence_detected"]
-        )
+    
+    async def async_update(self):
+        zone = get_zone_thermal_details(self.zone_id,_HASS.data[DOMAIN]["thermal_details"])
+        last_presence_detected = zone.get("last_presence_detected")
+        self._is_on = self.is_occupied(last_presence_detected)
         self.attrs.update(
             {
-                "last_presence_detected": self.coordinator.data[self.zone_id][
-                    "last_presence_detected"
-                ],
+                "last_presence_detected": last_presence_detected,
             }
         )
         self.async_write_ha_state()

@@ -1,4 +1,6 @@
-from datetime import timedelta
+from datetime import timedelta, datetime
+from zoneinfo import ZoneInfo
+
 import logging
 from typing import Any, Optional
 
@@ -13,6 +15,9 @@ from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity import Entity
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.typing import ConfigType
+from homeassistant.helpers.device_registry import DeviceInfo
+
+from .comap_functions import refresh_all_comap_entities, get_connected_object_zone_infos, get_now, setComapValues
 
 from .comap import ComapClient
 from .const import (
@@ -21,7 +26,6 @@ from .const import (
     DOMAIN,
     SERVICE_SET_AWAY,
     SERVICE_SET_HOME,
-    COMAP_SENSOR_SCAN_INTERVAL
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -30,11 +34,11 @@ SENSOR_PLATFORM_SCHEMA = SENSOR_PLATFORM_SCHEMA.extend(
     {
         vol.Required(CONF_USERNAME): cv.string,
         vol.Required(CONF_PASSWORD): cv.string,
-        vol.Optional(COMAP_SENSOR_SCAN_INTERVAL): cv.Number,
     }
 )
 
-SCAN_INTERVAL = timedelta(minutes=1)
+SCAN_INTERVAL = timedelta(minutes=5)
+
 
 async def async_setup_entry(
     hass: HomeAssistant,
@@ -51,19 +55,16 @@ async def async_setup_platform(
     async_add_entities: AddEntitiesCallback,
 ) -> None:
 
-    # Extraire la valeur de l'intervalle de scan depuis la configuration
-    scan_interval_minutes = config.get(COMAP_SENSOR_SCAN_INTERVAL, 1)
-    scan_interval = timedelta(minutes=scan_interval_minutes)
+    global _CLIENT
+    _CLIENT = ComapClient(username=config[CONF_USERNAME], password=config[CONF_PASSWORD])
 
-    client = ComapClient(username=config[CONF_USERNAME], password=config[CONF_PASSWORD])
+    global _HASS
+    _HASS = hass
+    
+    themal_details = hass.data[DOMAIN]["thermal_details"]
+    connected_objects = hass.data[DOMAIN]["connected_objects"]
 
-    global HOUSING_DATA
-    HOUSING_DATA = hass.data[DOMAIN]["housing"]
-
-    connected_objects = await client.get_housing_connected_objects()
-
-    req = await client.get_zones()
-    zones = req.get("zones")
+    zones = themal_details.get("zones")
     obj_zone_names = {}
     obj_zone_ids = {}
     for zone in zones:
@@ -78,29 +79,29 @@ async def async_setup_platform(
             batt_list.append(object)
     
     batt_sensors = [
-        ComapBatterySensor(client, batt_sensor, obj_zone_names, obj_zone_ids, scan_interval)
+        ComapBatterySensor(batt_sensor)
         for batt_sensor in batt_list
     ]
 
     device_sensors = [
-        ComapDeviceSensor(client, device_sensor, obj_zone_names, obj_zone_ids, scan_interval)
+        ComapDeviceSensor(device_sensor)
         for device_sensor in connected_objects
     ]
 
 
-    housing_sensors = [ComapHousingSensor(client, scan_interval)]
+    housing_sensors = [ComapHousingSensor()]
 
     sensors = housing_sensors + device_sensors + batt_sensors
 
-    async_add_entities(sensors, update_before_add=True)
+    async_add_entities(sensors, update_before_add = True)
 
     async def set_away(call):
         """Set home away."""
-        await client.leave_home()
+        await _CLIENT.leave_home()
 
     async def set_home(call):
         """Set home."""
-        await client.return_home()
+        await _CLIENT.return_home()
 
     hass.services.async_register(DOMAIN, SERVICE_SET_AWAY, set_away)
     hass.services.async_register(DOMAIN, SERVICE_SET_HOME, set_home)
@@ -109,20 +110,17 @@ async def async_setup_platform(
 
 
 class ComapHousingSensor(Entity):
-    def __init__(self, client, scan_interval):
+    def __init__(self):
         super().__init__()
-        self._scan_interval = scan_interval
-        self.client = client
-        self.housing = HOUSING_DATA.get("id")
-        self._name = "Infos " + HOUSING_DATA.get("name")
-        self._state = None
+        self.hass = _HASS
+        self.client = _CLIENT
+        self.housing_id = _HASS.data[DOMAIN]["housing"].get("id")
+        self._name = "Infos " + _HASS.data[DOMAIN]["housing"].get("name")
+        self._state = self._state = _HASS.data[DOMAIN]["thermal_details"].get("services_available")
         self._available = True
         self.attrs: dict[str, Any] = {}
-
-    @property
-    def scan_interval(self) -> timedelta:
-        """Retourne l'intervalle de scan défini."""
-        return self._scan_interval
+        self._id = self.housing_id + "_sensor"
+        _HASS.data[DOMAIN]["main_sensor_id"] = self._id
 
     @property
     def name(self) -> str:
@@ -132,7 +130,7 @@ class ComapHousingSensor(Entity):
     @property
     def unique_id(self) -> str:
         """Return the unique ID of the sensor."""
-        return self.housing + "_sensor"
+        return self._id
 
     @property
     def available(self) -> bool:
@@ -153,46 +151,48 @@ class ComapHousingSensor(Entity):
         return DeviceInfo(
             identifiers={
                 # Serial numbers are unique identifiers within a specific domain
-                (DOMAIN, self.housing)
+                (DOMAIN, self.housing_id)
             },
             name=self.name,
             manufacturer="comap",
-            serial_number = self.housing
+            serial_number = self.housing_id
         )
 
     async def async_update(self):
-        housings = await self.client.async_get_housings()
-        self._name = housings[0].get("name")
-        self.attrs[ATTR_ADDRESS] = housings[0].get("address")
-        self.attrs["thermal-details"] = await self.client.get_zones()
-        thermal_details = await self.client.get_zones()
+
+        await setComapValues(_HASS,_CLIENT)
+
+        housing = _HASS.data[DOMAIN]["housing"]
+        self._name = housing.get("name")
+        thermal_details = _HASS.data[DOMAIN]["thermal_details"]
+        self.attrs = {
+            "automatic_update_value": get_now(),
+            "automatic_update_label": "Mise à jour depuis comap : ",
+            ATTR_ADDRESS:  housing.get("address")
+        }
         self._state = thermal_details.get("services_available")
+        await refresh_all_comap_entities(_HASS, self._id)
                    
 
 class ComapBatterySensor(Entity):
-    def __init__(self, client, batt_sensor, obj_zone_names, obj_zone_ids, scan_interval):
+    def __init__(self, batt_sensor):
         super().__init__()
         """Initialize the battery sensor."""
-        self._scan_interval = scan_interval
-        self.client = client
         self._state = batt_sensor.get("voltage_percent")
-        self.housing = HOUSING_DATA.get("id")
-        self._unique_id = None
+        self.housing = _HASS.data[DOMAIN]["housing"].get("id")
         self.sn = batt_sensor.get("serial_number")
         self.model = batt_sensor.get("model")
         self._batt = batt_sensor.get("voltage_percent")
-        self.zone_name = ""
-        if (self.sn in obj_zone_names):
-            self.zone_name = obj_zone_names.get(self.sn)
-        self._name = "Batterie " + self.model + " " + self.zone_name + " " + self.client.get_housings()[0].get("name")
-        self.zone_id = self.housing
-        if (self.sn in obj_zone_ids):
-            self.zone_id = obj_zone_ids.get(self.sn)
-
-    @property
-    def scan_interval(self) -> timedelta:
-        """Retourne l'intervalle de scan défini."""
-        return self._scan_interval
+        obj_zone_infos = get_connected_object_zone_infos(self.sn, _HASS.data[DOMAIN]["thermal_details"])
+        self.zone_name = obj_zone_infos.get("title")
+        if self.zone_name is None:
+            self.zone_name = ""
+        self._name = "Batterie " + self.model + " " + self.zone_name + " " + _HASS.data[DOMAIN]["housing"].get("name")
+        self.zone_id = obj_zone_infos.get("id")
+        if self.zone_id is None:
+            self.zone_id = self.housing
+        self._unique_id = self.housing + "_" + self.zone_id + "_battery_" + self.model + "_"+ self.sn
+        self.attrs = {}
 
     @property
     def name(self):
@@ -208,7 +208,11 @@ class ComapBatterySensor(Entity):
 
     @property
     def unique_id(self) -> str:
-        return self.housing + "_" + self.zone_id + "_battery_" + self.model + "_"+ self.sn
+        return self._unique_id
+    
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        return self.attrs
     
     @property
     def device_info(self) -> DeviceInfo:
@@ -218,7 +222,7 @@ class ComapBatterySensor(Entity):
                 # Serial numbers are unique identifiers within a specific domain
                 (DOMAIN, self.zone_id)
             },
-            name = self.zone_name + " " + HOUSING_DATA.get("name"),
+            name = self.zone_name + " " + _HASS.data[DOMAIN]["housing"].get("name"),
             manufacturer = "comap",
             serial_number = self.zone_id
         )
@@ -233,38 +237,37 @@ class ComapBatterySensor(Entity):
 
     async def async_update(self):
         batt = None
-        objects = await self.client.get_housing_connected_objects()
+        objects = _HASS.data[DOMAIN]["connected_objects"]
         for object in objects:
             if object.get("serial_number") == self.sn:
                 batt = object.get("voltage_percent")
         self._state = batt
+        self.attrs = {
+            "automatic_update_value": get_now(),
+            "automatic_update_label": "Mise à jour depuis comap : ",
+        }
+
 
 class ComapDeviceSensor(Entity):
-    def __init__(self, client, device_sensor, obj_zone_names, obj_zone_ids, scan_interval):
+    def __init__(self, device_sensor):
         super().__init__()
-        self._scan_interval = scan_interval
-        self.client = client
-        self.housing = HOUSING_DATA.get("id")
+        self.housing = _HASS.data[DOMAIN]["housing"].get("id")
         self._state = None
         self._available = True
-        #self._attr_disabled_by = 'integration'
-        self._unique_id = None
         self.sn = device_sensor.get("serial_number")
         self.model = device_sensor.get("model")
         self.attrs: dict[str, Any] = {}
         self.device_sensor = device_sensor
-        self.zone_name = ""
-        if (self.sn in obj_zone_names):
-            self.zone_name = obj_zone_names.get(self.sn)
+        obj_zone_infos = get_connected_object_zone_infos(self.sn, _HASS.data[DOMAIN]["thermal_details"])
+        self.zone_name = obj_zone_infos.get("title")
+        if self.zone_name is None:
+            self.zone_name = ""
         self._name = self.model.capitalize() + " " + self.zone_name
-        self.zone_id = self.housing
-        if (self.sn in obj_zone_ids):
-            self.zone_id = obj_zone_ids.get(self.sn)
 
-    @property
-    def scan_interval(self) -> timedelta:
-        """Retourne l'intervalle de scan défini."""
-        return self._scan_interval
+        self.zone_id = obj_zone_infos.get("id")
+        if self.zone_id is None:
+            self.zone_id = self.housing
+        self._unique_id = self.housing + "_" + self.zone_id + "_" + self.model + "_"+ self.sn
     
     @property
     def name(self) -> str:
@@ -286,7 +289,7 @@ class ComapDeviceSensor(Entity):
     @property
     def unique_id(self) -> str:
         """Return the unique ID of the sensor."""
-        return self.housing + "_" + self.zone_id + "_" + self.model + "_"+ self.sn
+        return self._unique_id
 
     @property
     def available(self) -> bool:
@@ -309,16 +312,18 @@ class ComapDeviceSensor(Entity):
                 # Serial numbers are unique identifiers within a specific domain
                 (DOMAIN, self.zone_id)
             },
-            name = self.zone_name + " " + self.client.get_housings()[0].get("name"),
+            name = self.zone_name + " " + _HASS.data[DOMAIN]["housing"].get("name"),
             manufacturer = "comap",
             serial_number = self.zone_id
         )
 
     async def async_update(self):
-        zones = await self.client.get_eligible_zones(self.sn)
-        objects = await self.client.get_housing_connected_objects()
+        objects = _HASS.data[DOMAIN]["connected_objects"]
+        self.attrs = {
+            "automatic_update_value": get_now(),
+            "automatic_update_label": "Mise à jour depuis comap : ",
+        }
         for object in objects:
             if object.get("serial_number") == self.sn:
-                self.attrs = object
+                self.attrs.update(object)
                 self._state = object.get("communication_status")
-        self.attrs["Zones"] = zones

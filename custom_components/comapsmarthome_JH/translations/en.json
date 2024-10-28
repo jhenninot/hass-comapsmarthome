@@ -6,27 +6,7 @@
                 "title": "Register your ComapSmartHome account.",
                 "data": {
                     "username": "Username",
-                    "password": "Password",
-                    "sensor_scan_interval": "Sensors scan interval (minutes)",
-                    "schedule_scan_interval": "Schedules scan interval (minutes)",
-                    "assitant-compatibility": "Make climate entities compatible with Alexa and other assistants"
-                }
-            }
-        },
-        "error": {
-            "cannot_connect": "Impossible to establish connection, check credentials."
-        }
-    },
-    
-    "options": {
-        "flow_title": "{name}",
-        "step": {
-            "user": {
-                "title": "Options.",
-                "data": {
-                    "sensor_scan_interval": "Sensors scan interval (minutes)",
-                    "schedule_scan_interval": "Schedules scan interval (minutes)",
-                    "assitant-compatibility": "Make climate entities compatible with Alexa and other assistants"
+                    "password": "Password"
                 }
             }
         },

@@ -155,6 +155,13 @@ class ComapClient(object):
         return await self.async_get(
             self._BASEURL + "thermal/housings/" + housing + "/thermal-details"
         )
+    
+    async def get_thermal_details(self, housing=None):
+        if housing is None:
+            housing = self.housing
+        return await self.async_get(
+            self._BASEURL + "thermal/housings/" + housing + "/thermal-details"
+        )
 
     def get_zone(self, zoneid, housing=None):
         if housing is None:
@@ -166,6 +173,7 @@ class ComapClient(object):
             + "/thermal-details/zones/"
             + zoneid
         )
+
     
     async def get_housing_connected_objects(self, housing=None):
         """Get a list of all objects in the specified housing"""
@@ -294,7 +302,6 @@ class ComapClient(object):
             + program
             + "/activate"
         )
-
 
     async def get_active_schedules(self, housing=None):
         """Returns an array of zones with their active schedules"""
